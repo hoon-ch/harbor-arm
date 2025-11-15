@@ -1,0 +1,194 @@
+# Harbor ARM64 on Kubernetes 사용 예시
+
+## Helm을 사용한 설치
+
+### 1. Harbor Helm Chart 다운로드
+```bash
+helm repo add harbor https://helm.goharbor.io
+helm pull harbor/harbor --untar
+cd harbor
+```
+
+### 2. values.yaml 수정
+```yaml
+# values-arm64.yaml
+
+# 이미지 레지스트리를 Docker Hub 또는 GHCR로 변경
+imageChartStorage:
+  type: filesystem
+
+# 각 컴포넌트의 이미지를 ARM64 버전으로 교체
+core:
+  image:
+    repository: hoon-ch/harbor-core-arm64
+    tag: 2.13.0
+
+jobservice:
+  image:
+    repository: hoon-ch/harbor-jobservice-arm64
+    tag: 2.13.0
+
+registry:
+  registry:
+    image:
+      repository: hoon-ch/harbor-registry-arm64
+      tag: 2.13.0
+  controller:
+    image:
+      repository: hoon-ch/harbor-registryctl-arm64
+      tag: 2.13.0
+
+portal:
+  image:
+    repository: hoon-ch/harbor-portal-arm64
+    tag: 2.13.0
+
+trivy:
+  image:
+    repository: hoon-ch/harbor-trivy-adapter-arm64
+    tag: 2.13.0
+
+database:
+  internal:
+    image:
+      repository: hoon-ch/harbor-db-arm64
+      tag: 2.13.0
+
+redis:
+  internal:
+    image:
+      repository: hoon-ch/harbor-redis-arm64
+      tag: 2.13.0
+
+nginx:
+  image:
+    repository: hoon-ch/harbor-nginx-arm64
+    tag: 2.13.0
+
+# NodeSelector를 사용하여 ARM64 노드에서만 실행되도록 설정
+nodeSelector:
+  kubernetes.io/arch: arm64
+
+# 또는 특정 노드 풀을 지정
+# nodeSelector:
+#   agentpool: arm64pool
+```
+
+### 3. Helm 설치
+```bash
+# 네임스페이스 생성
+kubectl create namespace harbor
+
+# Harbor 설치
+helm install harbor harbor/harbor \
+  -f values-arm64.yaml \
+  -n harbor \
+  --set expose.type=loadBalancer \
+  --set expose.tls.enabled=true \
+  --set externalURL=https://harbor.example.com \
+  --set harborAdminPassword=Harbor12345
+
+# 설치 상태 확인
+kubectl get pods -n harbor
+kubectl get svc -n harbor
+```
+
+## ARM64 노드 확인
+
+### Kubernetes 클러스터의 ARM64 노드 확인
+```bash
+# 노드 아키텍처 확인
+kubectl get nodes -o wide --show-labels | grep arm64
+
+# 또는
+kubectl get nodes -o custom-columns=NAME:.metadata.name,ARCH:.status.nodeInfo.architecture
+```
+
+## 주요 고려사항
+
+### 1. ARM64 노드 요구사항
+- Kubernetes 클러스터에 ARM64 아키텍처 노드가 필요합니다
+- AWS: Graviton 인스턴스 (t4g, m6g, c6g 등)
+- Azure: ARM 기반 VM (Ampere Altra)
+- Oracle Cloud: Ampere A1 인스턴스
+- Raspberry Pi 클러스터
+
+### 2. 성능 최적화
+- ARM64는 일반적으로 x86_64보다 전력 효율이 좋습니다
+- 비용 효율적인 운영이 가능합니다
+- 특히 클라우드 환경에서 ARM 인스턴스는 20-40% 저렴합니다
+
+### 3. 호환성 체크
+- 모든 Harbor 플러그인이 ARM64를 지원하는지 확인
+- 외부 스토리지 드라이버의 ARM64 지원 여부 확인
+
+## 테스트 배포 예시
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: harbor-core-test
+  namespace: harbor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: harbor-core
+  template:
+    metadata:
+      labels:
+        app: harbor-core
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: harbor-core
+        image: hoon-ch/harbor-core-arm64:2.13.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CONFIG_PATH
+          value: /etc/core/app.conf
+```
+
+## 문제 해결
+
+### 이미지 Pull 실패 시
+```bash
+# Docker Hub 인증
+kubectl create secret docker-registry harbor-registry-secret \
+  --docker-server=docker.io \
+  --docker-username=hoon-ch \
+  --docker-password=<your-token> \
+  -n harbor
+
+# GHCR 인증 (필요시)
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=hoon-ch \
+  --docker-password=<github-token> \
+  -n harbor
+```
+
+### Pod 스케줄링 확인
+```bash
+# ARM64 노드에 제대로 스케줄되었는지 확인
+kubectl get pods -n harbor -o wide
+
+# Pod 상세 정보 확인
+kubectl describe pod <pod-name> -n harbor
+```
+
+## 다음 버전 빌드
+
+이제 GitHub Actions 워크플로우가 자동으로:
+1. 매일 00:00 UTC에 새 Harbor 릴리즈 확인
+2. 새 버전 발견 시 자동으로 ARM64 빌드
+3. Docker Hub과 GHCR에 자동 푸시
+
+수동 빌드가 필요한 경우:
+```bash
+# GitHub Actions에서 수동 트리거
+gh workflow run check-and-build.yml --field version=v2.14.0
+```

@@ -1,0 +1,304 @@
+# Harbor Helm Chart values for ARM64 deployment
+# Use this file with official Harbor Helm chart
+
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: auto
+  ingress:
+    hosts:
+      core: harbor.example.com
+      notary: notary.example.com
+    className: nginx
+    annotations:
+      ingress.kubernetes.io/ssl-redirect: "true"
+      ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+
+externalURL: https://harbor.example.com
+
+# Initial password for Harbor admin user
+harborAdminPassword: "Harbor12345"
+
+# Persistence configuration
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 50Gi
+    chartmuseum:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    jobservice:
+      jobLog:
+        existingClaim: ""
+        storageClass: ""
+        subPath: ""
+        accessMode: ReadWriteOnce
+        size: 1Gi
+    database:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 10Gi
+    redis:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    trivy:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+
+# ARM64 Image Configuration
+# Override default images with ARM64 versions
+
+nginx:
+  image:
+    repository: hoon-ch/harbor-nginx-arm64
+    tag: 2.13.0
+  serviceAccountName: ""
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+
+portal:
+  image:
+    repository: hoon-ch/harbor-portal-arm64
+    tag: 2.13.0
+  serviceAccountName: ""
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+
+core:
+  image:
+    repository: hoon-ch/harbor-core-arm64
+    tag: 2.13.0
+  serviceAccountName: ""
+  replicas: 1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+  ## Extra environment variables for Core
+  extraEnvVars: []
+
+jobservice:
+  image:
+    repository: hoon-ch/harbor-jobservice-arm64
+    tag: 2.13.0
+  serviceAccountName: ""
+  replicas: 1
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+  ## Max number of job workers
+  maxJobWorkers: 10
+
+registry:
+  serviceAccountName: ""
+  registry:
+    image:
+      repository: hoon-ch/harbor-registry-arm64
+      tag: 2.13.0
+  controller:
+    image:
+      repository: hoon-ch/harbor-registryctl-arm64
+      tag: 2.13.0
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+  replicas: 1
+  credentials:
+    username: "harbor_registry_user"
+    password: "harbor_registry_password"
+    # If using external S3 storage
+    # s3:
+    #   region: us-west-2
+    #   bucket: harbor-registry
+
+trivy:
+  enabled: true
+  image:
+    repository: hoon-ch/harbor-trivy-adapter-arm64
+    tag: 2.13.0
+  serviceAccountName: ""
+  replicas: 1
+  vulnType: "os,library"
+  severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+  ignoreUnfixed: false
+  insecure: false
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+database:
+  type: internal
+  internal:
+    serviceAccountName: ""
+    image:
+      repository: hoon-ch/harbor-db-arm64
+      tag: 2.13.0
+    nodeSelector:
+      kubernetes.io/arch: arm64
+    tolerations: []
+    affinity: {}
+    password: "changeit"
+    shmSizeLimit: 512Mi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1
+        memory: 1Gi
+  # External database configuration (if type: external)
+  # external:
+  #   host: "192.168.0.1"
+  #   port: "5432"
+  #   username: "user"
+  #   password: "password"
+  #   coreDatabase: "registry"
+
+redis:
+  type: internal
+  internal:
+    serviceAccountName: ""
+    image:
+      repository: hoon-ch/harbor-redis-arm64
+      tag: 2.13.0
+    nodeSelector:
+      kubernetes.io/arch: arm64
+    tolerations: []
+    affinity: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1
+        memory: 512Mi
+  # External Redis configuration (if type: external)
+  # external:
+  #   addr: "192.168.0.2:6379"
+  #   sentinelMasterSet: ""
+  #   coreDatabaseIndex: "0"
+  #   jobserviceDatabaseIndex: "1"
+  #   registryDatabaseIndex: "2"
+  #   trivyAdapterIndex: "5"
+  #   password: ""
+
+# Notary is not included in ARM64 build yet
+notary:
+  enabled: false
+
+# ChartMuseum support (if needed)
+chartmuseum:
+  enabled: false
+  serviceAccountName: ""
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  tolerations: []
+  affinity: {}
+
+# Global node selector for all components
+# This ensures all pods run on ARM64 nodes
+nodeSelector:
+  kubernetes.io/arch: arm64
+
+# Global tolerations
+tolerations:
+  - key: "arch"
+    operator: "Equal"
+    value: "arm64"
+    effect: "NoSchedule"
+
+# Resource limits and requests
+# Adjust based on your cluster capacity
+resources:
+  nginx:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+  portal:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+  core:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  jobservice:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  registry:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  registryctl:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+# Metrics and monitoring
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+  path: /metrics
+  port: 8001
+
+# Log level: debug, info, warning, error, fatal
+logLevel: info
+
+# Cache configuration
+cache:
+  enabled: false
+  expireHours: 24
