@@ -107,12 +107,10 @@ jobs:
             BUILDBIN=true \
             NOTARYFLAG=false \
             TRIVYFLAG=true \
-            BUILD_BASE=true \
             BUILD_INSTALLER=true \
-            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare" \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION_TAG} \
-            BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
+            BASEIMAGENAMESPACE=goharbor \
             IMAGENAMESPACE=${DOCKER_USERNAME} \
             REGISTRYSERVER="" \
             DEVFLAG=false \
