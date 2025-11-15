@@ -64,7 +64,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.22'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -102,7 +102,7 @@ jobs:
           # Use Harbor's official Makefile with ARM64 target
           # Only compile and build, skip prepare and start
           make compile build \
-            GOBUILDIMAGE=golang:1.24 \
+            GOBUILDIMAGE=golang:1.22 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
             NOTARYFLAG=false \
@@ -127,30 +127,61 @@ jobs:
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
-          COMPONENTS="prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter"
+          # List built images to understand naming
+          echo "Built images:"
+          docker images | grep ${DOCKER_USERNAME} || docker images | grep ${VERSION_TAG} || true
 
-          for component in $COMPONENTS; do
-            # Tag for Docker Hub
-            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
-              ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
-            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
-              ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+          # The actual image names produced by Harbor's Makefile
+          # Format: ${IMAGENAMESPACE}/image-name:${VERSION_TAG}
+          declare -A IMAGE_NAMES=(
+            ["prepare"]="prepare"
+            ["core"]="harbor-core"
+            ["db"]="harbor-db"
+            ["jobservice"]="harbor-jobservice"
+            ["log"]="harbor-log"
+            ["nginx"]="nginx-photon"
+            ["portal"]="harbor-portal"
+            ["redis"]="redis-photon"
+            ["registry"]="registry-photon"
+            ["registryctl"]="harbor-registryctl"
+            ["trivy-adapter"]="trivy-adapter-photon"
+          )
 
-            # Tag for GHCR
-            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
-              ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
-            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
-              ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+          # Debug: List all docker images to see what was actually built
+          echo "All available images:"
+          docker images --format "table {{.Repository}}:{{.Tag}}" | sort
 
-            # Push to Docker Hub
-            docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
-            docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+          for component in prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter; do
+            IMAGE_NAME="${IMAGE_NAMES[$component]}"
+            SOURCE_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
-            # Push to GHCR
-            docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
-            docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+            echo "Looking for image: ${SOURCE_IMAGE}"
 
-            echo "✅ Built and pushed ${component}" >> $GITHUB_STEP_SUMMARY
+            # Check if image exists
+            if docker image inspect ${SOURCE_IMAGE} >/dev/null 2>&1; then
+              echo "✅ Found ${component} image: ${SOURCE_IMAGE}"
+
+              # Tag for Docker Hub with -arm64 suffix
+              docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
+              docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+
+              # Tag for GHCR
+              docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
+              docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+
+              # Push to Docker Hub
+              docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
+              docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+
+              # Push to GHCR
+              docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
+              docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+
+              echo "✅ Built and pushed ${component}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Image not found: ${SOURCE_IMAGE}"
+              echo "⚠️ Image not found: ${SOURCE_IMAGE}" >> $GITHUB_STEP_SUMMARY
+            fi
           done
 
   update-version-file:
