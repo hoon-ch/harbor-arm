@@ -73,6 +73,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/arm64
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -99,6 +101,17 @@ jobs:
           # Patch photon Makefile to remove exporter from buildcompt target
           sed -i 's/_compile_and_build_exporter//g' make/photon/Makefile
 
+          # Patch Makefile to use buildx for ARM64
+          sed -i 's/DOCKERCMD=$(shell which docker)/DOCKERCMD=$(shell which docker)/' Makefile
+          sed -i 's/DOCKERBUILD=$(DOCKERCMD) build/DOCKERBUILD=$(DOCKERCMD) buildx build --platform linux\/arm64/' Makefile
+          sed -i 's/DOCKERBUILD_WITH_PULL_PARA=$(DOCKERBUILD)/DOCKERBUILD_WITH_PULL_PARA=$(DOCKERBUILD)/' Makefile
+
+          # Export architecture environment variables
+          export GOARCH=arm64
+          export TARGETARCH=arm64
+          export GOOS=linux
+          export DOCKER_DEFAULT_PLATFORM=linux/arm64
+
           # Use Harbor's official Makefile with ARM64 target
           # Only compile and build, skip prepare and start
           # Note: BASEIMAGETAG uses full version with 'v' prefix for Docker Hub compatibility
@@ -118,6 +131,7 @@ jobs:
             BUILDTARGET=build \
             TARGETARCH=arm64 \
             GOARCH=arm64 \
+            GOOS=linux \
             PLATFORMS=linux/arm64
 
       - name: Tag and push ARM64 images
