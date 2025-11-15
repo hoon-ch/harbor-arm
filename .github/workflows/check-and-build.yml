@@ -49,7 +49,7 @@ jobs:
           echo "should_build=true" >> $GITHUB_OUTPUT
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
 
-  build-harbor:
+  build-base-images:
     needs: check-release
     if: needs.check-release.outputs.should_build == 'true'
     runs-on: ubuntu-latest
@@ -69,9 +69,6 @@ jobs:
           - trivy-adapter
       fail-fast: false
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Checkout Harbor repository
         uses: actions/checkout@v4
         with:
@@ -88,14 +85,90 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image for ${{ matrix.component }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          COMPONENT="${{ matrix.component }}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+          GITHUB_REPO_OWNER="${{ github.repository_owner }}"
+
+          cd harbor
+
+          # Check if base Dockerfile exists
+          if [ ! -f "make/photon/$COMPONENT/Dockerfile.base" ]; then
+            echo "No Dockerfile.base for $COMPONENT, skipping base image build"
+            exit 0
+          fi
+
+          echo "Building base image for $COMPONENT..."
+          docker buildx build \
+            --platform linux/arm64 \
+            --file make/photon/$COMPONENT/Dockerfile.base \
+            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-base-arm64:${VERSION_TAG} \
+            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-base-arm64:${VERSION_TAG} \
+            --push \
+            --provenance=false \
+            .
+
+      - name: Build summary
+        run: |
+          echo "✅ Built base image for ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+
+  build-harbor:
+    needs: [check-release, build-base-images]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - prepare
+          - core
+          - db
+          - jobservice
+          - log
+          - nginx
+          - portal
+          - redis
+          - registry
+          - registryctl
+          - trivy-adapter
+      fail-fast: false
+    steps:
+      - name: Checkout Harbor repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.HARBOR_REPO }}
+          ref: ${{ needs.check-release.outputs.version }}
+          path: harbor
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -107,26 +180,17 @@ jobs:
           VERSION="${{ needs.check-release.outputs.version }}"
           VERSION_TAG="${VERSION#v}"
           COMPONENT="${{ matrix.component }}"
-
-          cd harbor/make/photon/$COMPONENT
-
-          # Determine Dockerfile name
-          if [ -f "Dockerfile" ]; then
-            DOCKERFILE="Dockerfile"
-          elif [ -f "Dockerfile.base" ]; then
-            DOCKERFILE="Dockerfile.base"
-          else
-            echo "No Dockerfile found for $COMPONENT"
-            exit 1
-          fi
-
-          # Build for arm64
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
+          cd harbor
+
+          # Build final image with base image reference
           docker buildx build \
             --platform linux/arm64 \
-            --file $DOCKERFILE \
+            --file make/photon/$COMPONENT/Dockerfile \
+            --build-arg harbor_base_image_version=${VERSION_TAG} \
+            --build-arg harbor_base_namespace=${DOCKER_USERNAME} \
             --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
             --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:latest \
             --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
