@@ -49,25 +49,10 @@ jobs:
           echo "should_build=true" >> $GITHUB_OUTPUT
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
 
-  build-base-images:
+  build-harbor:
     needs: check-release
     if: needs.check-release.outputs.should_build == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        component:
-          - prepare
-          - core
-          - db
-          - jobservice
-          - log
-          - nginx
-          - portal
-          - redis
-          - registry
-          - registryctl
-          - trivy-adapter
-      fail-fast: false
     steps:
       - name: Checkout Harbor repository
         uses: actions/checkout@v4
@@ -75,6 +60,11 @@ jobs:
           repository: ${{ env.HARBOR_REPO }}
           ref: ${{ needs.check-release.outputs.version }}
           path: harbor
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -97,111 +87,66 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push base image for ${{ matrix.component }}
+      - name: Build Harbor for ARM64
         run: |
+          cd harbor
+
           VERSION="${{ needs.check-release.outputs.version }}"
           VERSION_TAG="${VERSION#v}"
-          COMPONENT="${{ matrix.component }}"
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
-          cd harbor
+          # Use Harbor's official Makefile with ARM64 target
+          make install \
+            GOBUILDIMAGE=golang:1.23 \
+            COMPILETAG=compile_golangimage \
+            BUILDBIN=true \
+            NOTARYFLAG=false \
+            TRIVYFLAG=true \
+            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare" \
+            VERSIONTAG=${VERSION_TAG} \
+            BASEIMAGETAG=${VERSION_TAG} \
+            BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
+            IMAGENAMESPACE=${DOCKER_USERNAME} \
+            REGISTRYSERVER="" \
+            DEVFLAG=false \
+            BUILDTARGET=build \
+            TARGETARCH=arm64 \
+            GOARCH=arm64 \
+            PLATFORMS=linux/arm64
 
-          # Check if base Dockerfile exists
-          if [ ! -f "make/photon/$COMPONENT/Dockerfile.base" ]; then
-            echo "No Dockerfile.base for $COMPONENT, skipping base image build"
-            exit 0
-          fi
-
-          echo "Building base image for $COMPONENT..."
-          docker buildx build \
-            --platform linux/arm64 \
-            --file make/photon/$COMPONENT/Dockerfile.base \
-            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-base:${VERSION_TAG} \
-            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-base:${VERSION_TAG} \
-            --push \
-            --provenance=false \
-            .
-
-      - name: Build summary
-        run: |
-          echo "✅ Built base image for ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
-
-  build-harbor:
-    needs: [check-release, build-base-images]
-    if: needs.check-release.outputs.should_build == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        component:
-          - prepare
-          - core
-          - db
-          - jobservice
-          - log
-          - nginx
-          - portal
-          - redis
-          - registry
-          - registryctl
-          - trivy-adapter
-      fail-fast: false
-    steps:
-      - name: Checkout Harbor repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.HARBOR_REPO }}
-          ref: ${{ needs.check-release.outputs.version }}
-          path: harbor
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push ${{ matrix.component }}
+      - name: Tag and push ARM64 images
         run: |
           VERSION="${{ needs.check-release.outputs.version }}"
           VERSION_TAG="${VERSION#v}"
-          COMPONENT="${{ matrix.component }}"
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
-          cd harbor
+          COMPONENTS="prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter"
 
-          # Build final image with base image reference
-          docker buildx build \
-            --platform linux/arm64 \
-            --file make/photon/$COMPONENT/Dockerfile \
-            --build-arg harbor_base_image_version=${VERSION_TAG} \
-            --build-arg harbor_base_namespace=${DOCKER_USERNAME} \
-            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
-            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:latest \
-            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
-            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-arm64:latest \
-            --push \
-            --provenance=false \
-            .
+          for component in $COMPONENTS; do
+            # Tag for Docker Hub
+            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
+              ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
+            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
+              ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
 
-      - name: Build summary
-        run: |
-          echo "✅ Built ${{ matrix.component }} for version ${{ needs.check-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            # Tag for GHCR
+            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
+              ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
+            docker tag ${DOCKER_USERNAME}/harbor-${component}:${VERSION_TAG} \
+              ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+
+            # Push to Docker Hub
+            docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
+            docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+
+            # Push to GHCR
+            docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
+            docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+
+            echo "✅ Built and pushed ${component}" >> $GITHUB_STEP_SUMMARY
+          done
 
   update-version-file:
     needs: [check-release, build-harbor]
