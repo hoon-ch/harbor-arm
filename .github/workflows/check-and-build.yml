@@ -100,7 +100,8 @@ jobs:
           sed -i 's/_compile_and_build_exporter//g' make/photon/Makefile
 
           # Use Harbor's official Makefile with ARM64 target
-          make install \
+          # Only compile and build, skip prepare and start
+          make compile build \
             GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
