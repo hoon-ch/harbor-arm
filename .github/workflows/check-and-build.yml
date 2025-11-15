@@ -103,6 +103,7 @@ jobs:
             BUILDBIN=true \
             NOTARYFLAG=false \
             TRIVYFLAG=true \
+            EXPORTERFLAG=false \
             BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare" \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION_TAG} \
