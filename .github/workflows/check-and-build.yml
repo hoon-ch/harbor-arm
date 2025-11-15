@@ -104,7 +104,7 @@ jobs:
             NOTARYFLAG=false \
             TRIVYFLAG=true \
             EXPORTERFLAG=false \
-            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare" \
+            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare exporter" \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION_TAG} \
             BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
