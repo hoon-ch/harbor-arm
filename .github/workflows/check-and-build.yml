@@ -117,8 +117,8 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --file make/photon/$COMPONENT/Dockerfile.base \
-            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-base-arm64:${VERSION_TAG} \
-            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-base-arm64:${VERSION_TAG} \
+            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-base:${VERSION_TAG} \
+            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-base:${VERSION_TAG} \
             --push \
             --provenance=false \
             .
