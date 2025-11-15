@@ -96,6 +96,9 @@ jobs:
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
+          # Patch photon Makefile to remove exporter from buildcompt target
+          sed -i 's/_compile_and_build_exporter//g' make/photon/Makefile
+
           # Use Harbor's official Makefile with ARM64 target
           make install \
             GOBUILDIMAGE=golang:1.24 \
@@ -103,8 +106,8 @@ jobs:
             BUILDBIN=true \
             NOTARYFLAG=false \
             TRIVYFLAG=true \
-            EXPORTERFLAG=false \
-            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare exporter" \
+            BUILD_INSTALLER=true \
+            BUILDBASETARGET="core db jobservice log nginx portal redis registry registryctl trivy-adapter prepare" \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION_TAG} \
             BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
