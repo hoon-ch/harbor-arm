@@ -101,6 +101,7 @@ jobs:
 
           # Use Harbor's official Makefile with ARM64 target
           # Only compile and build, skip prepare and start
+          # Note: BASEIMAGETAG uses full version with 'v' prefix for Docker Hub compatibility
           make compile build \
             GOBUILDIMAGE=golang:1.23 \
             COMPILETAG=compile_golangimage \
@@ -109,7 +110,7 @@ jobs:
             TRIVYFLAG=true \
             BUILD_INSTALLER=true \
             VERSIONTAG=${VERSION_TAG} \
-            BASEIMAGETAG=${VERSION_TAG} \
+            BASEIMAGETAG=${VERSION} \
             BASEIMAGENAMESPACE=goharbor \
             IMAGENAMESPACE=${DOCKER_USERNAME} \
             REGISTRYSERVER="" \
