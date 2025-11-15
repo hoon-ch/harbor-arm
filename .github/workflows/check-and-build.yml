@@ -1,0 +1,164 @@
+name: Check and Build Harbor ARM64
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Harbor version to build (e.g., v2.11.0)'
+        required: false
+        type: string
+
+env:
+  HARBOR_REPO: goharbor/harbor
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for new release
+        id: check
+        run: |
+          # Get the latest release from Harbor
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            LATEST_VERSION="${{ github.event.inputs.version }}"
+            echo "Using manually specified version: $LATEST_VERSION"
+          else
+            LATEST_VERSION=$(curl -s https://api.github.com/repos/${{ env.HARBOR_REPO }}/releases/latest | jq -r .tag_name)
+            echo "Latest Harbor release: $LATEST_VERSION"
+          fi
+
+          # Check if we already built this version
+          if [ -f "built_versions.txt" ]; then
+            if grep -q "^${LATEST_VERSION}$" built_versions.txt; then
+              echo "Version $LATEST_VERSION already built"
+              echo "should_build=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+
+          echo "New version detected: $LATEST_VERSION"
+          echo "should_build=true" >> $GITHUB_OUTPUT
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+  build-harbor:
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - prepare
+          - core
+          - db
+          - jobservice
+          - log
+          - nginx
+          - portal
+          - redis
+          - registry
+          - registryctl
+          - trivy-adapter
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Harbor repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.HARBOR_REPO }}
+          ref: ${{ needs.check-release.outputs.version }}
+          path: harbor
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.component }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          COMPONENT="${{ matrix.component }}"
+
+          cd harbor/make/photon/$COMPONENT
+
+          # Determine Dockerfile name
+          if [ -f "Dockerfile" ]; then
+            DOCKERFILE="Dockerfile"
+          elif [ -f "Dockerfile.base" ]; then
+            DOCKERFILE="Dockerfile.base"
+          else
+            echo "No Dockerfile found for $COMPONENT"
+            exit 1
+          fi
+
+          # Build for arm64
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+          GITHUB_REPO_OWNER="${{ github.repository_owner }}"
+
+          docker buildx build \
+            --platform linux/arm64 \
+            --file $DOCKERFILE \
+            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
+            --tag ${DOCKER_USERNAME}/harbor-${COMPONENT}-arm64:latest \
+            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-arm64:${VERSION_TAG} \
+            --tag ghcr.io/${GITHUB_REPO_OWNER}/harbor-${COMPONENT}-arm64:latest \
+            --push \
+            --provenance=false \
+            .
+
+      - name: Build summary
+        run: |
+          echo "✅ Built ${{ matrix.component }} for version ${{ needs.check-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+  update-version-file:
+    needs: [check-release, build-harbor]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update built versions file
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          echo "$VERSION" >> built_versions.txt
+          sort -u built_versions.txt -o built_versions.txt
+
+      - name: Commit version file
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add built_versions.txt
+          git diff --staged --quiet || git commit -m "Add built version ${{ needs.check-release.outputs.version }}"
+          git push

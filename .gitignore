@@ -1,0 +1,28 @@
+# Harbor source code (cloned during build)
+harbor/
+
+# Build artifacts
+*.tar.gz
+*.tgz
+*.zip
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
