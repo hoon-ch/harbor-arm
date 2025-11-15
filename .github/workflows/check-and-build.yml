@@ -64,7 +64,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -103,7 +103,7 @@ jobs:
           # Only compile and build, skip prepare and start
           # Note: BASEIMAGETAG uses full version with 'v' prefix for Docker Hub compatibility
           make compile build \
-            GOBUILDIMAGE=golang:1.23 \
+            GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
             NOTARYFLAG=false \
