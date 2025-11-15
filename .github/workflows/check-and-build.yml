@@ -64,7 +64,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -102,7 +102,7 @@ jobs:
           # Use Harbor's official Makefile with ARM64 target
           # Only compile and build, skip prepare and start
           make compile build \
-            GOBUILDIMAGE=golang:1.22 \
+            GOBUILDIMAGE=golang:1.23 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
             NOTARYFLAG=false \
