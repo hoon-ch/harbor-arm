@@ -251,23 +251,24 @@ jobs:
             TRIVYFLAG=true \
             GOBUILDTAGS="include_oss include_gcs"
 
-          # Compile exporter separately
-          echo "Compiling exporter..."
-          make compile_exporter \
-            GOBUILDIMAGE=golang:1.24 \
-            COMPILETAG=compile_golangimage || echo "Exporter compile may have failed, continuing..."
+          # Compile exporter manually (make target doesn't exist in v2.14.0)
+          echo "========== Compiling exporter binary for ARM64 =========="
+          mkdir -p make/photon/exporter
 
-          # Verify exporter binary was created
-          echo "Checking for exporter binary..."
-          if [ -f "make/photon/exporter/harbor_exporter" ]; then
-            echo "✅ Exporter binary found"
-            ls -lh make/photon/exporter/harbor_exporter
-            file make/photon/exporter/harbor_exporter
-          else
-            echo "⚠️ Exporter binary not found at make/photon/exporter/harbor_exporter"
-            echo "Searching for exporter binary..."
-            find . -name "harbor_exporter" -o -name "exporter" 2>/dev/null | grep -v node_modules || true
-          fi
+          echo "Building exporter from source..."
+          cd src/cmd/exporter
+
+          # Build exporter binary for ARM64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o ../../../make/photon/exporter/harbor_exporter .
+
+          cd ../../..
+
+          # Set permissions and verify
+          chmod +x make/photon/exporter/harbor_exporter
+
+          echo "✅ Exporter binary created:"
+          file make/photon/exporter/harbor_exporter
+          ls -lh make/photon/exporter/harbor_exporter
 
           # Now build each Docker image manually using regular docker build
           # We're on native ARM64 so we don't need buildx!
