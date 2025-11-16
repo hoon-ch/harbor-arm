@@ -160,29 +160,35 @@ jobs:
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
 
-          # Download registry binary for ARM64
-          echo "========== Downloading registry binary for ARM64 =========="
-          # Harbor uses distribution/distribution project for registry
-          # We need to download or build the registry binary for ARM64
+          # Build registry binary for ARM64
+          echo "========== Building registry binary for ARM64 =========="
           mkdir -p make/photon/registry/binary
           mkdir -p make/photon/registryctl/binary
 
-          # Download pre-built registry binary from Docker Distribution project
-          REGISTRY_VERSION="2.8.3"
-          echo "Downloading registry binary v${REGISTRY_VERSION} for ARM64..."
-
           # Build registry from source for ARM64
           CURRENT_DIR=$(pwd)
-          git clone --depth 1 --branch v${REGISTRY_VERSION} https://github.com/distribution/distribution.git /tmp/distribution || true
+          REGISTRY_VERSION="2.8.3"
+
+          echo "Cloning and building registry v${REGISTRY_VERSION} for ARM64..."
+          git clone --depth 1 --branch v${REGISTRY_VERSION} https://github.com/distribution/distribution.git /tmp/distribution
           cd /tmp/distribution
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o registry ./cmd/registry
+
+          # Initialize go module and build
+          go mod download
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o registry ./cmd/registry
           chmod +x registry
+
+          # Verify binary architecture
+          file registry
+
+          # Copy to Harbor build directories
           cp registry ${CURRENT_DIR}/make/photon/registry/binary/
           cp registry ${CURRENT_DIR}/make/photon/registryctl/binary/
           cd ${CURRENT_DIR}
 
           echo "Registry binary built and copied"
-          ls -lh make/photon/registry/binary/ || echo "Registry binary dir not found"
+          ls -lh make/photon/registry/binary/
+          file make/photon/registry/binary/registry
 
           # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
           echo "========== Patching Harbor Makefile to disable image pulling =========="
