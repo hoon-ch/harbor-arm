@@ -52,7 +52,7 @@ jobs:
   build-harbor:
     needs: check-release
     if: needs.check-release.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04-arm64  # Use native ARM64 runner!
+    runs-on: ubuntu-24.04-arm  # Use native ARM64 runner!
     steps:
       - name: Checkout Harbor repository
         uses: actions/checkout@v4
