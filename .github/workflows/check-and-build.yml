@@ -95,33 +95,63 @@ jobs:
           echo "Building base images for ARM64..."
           echo "Architecture: $(uname -m)"
 
-          # Build harbor-prepare-base for ARM64
+          # Check if prepare base Dockerfile exists
+          if [ ! -f "make/photon/prepare/Dockerfile.base" ]; then
+            echo "ERROR: make/photon/prepare/Dockerfile.base not found!"
+            echo "Trying to find base Dockerfiles..."
+            find . -name "*.base" -o -name "Dockerfile.base" | head -20
+            exit 1
+          fi
+
+          # First, check what the base Dockerfile is based on
+          echo "Checking base image dependencies in Dockerfile.base..."
+          grep "^FROM" make/photon/prepare/Dockerfile.base || true
+
+          # Build harbor-prepare-base for ARM64 - this is the critical one
           echo "Building harbor-prepare-base:${VERSION} for ARM64..."
+
+          # Use --pull=never to avoid pulling AMD64 images if the base exists locally
+          # Otherwise use --pull=missing
           docker buildx build \
             --platform linux/arm64 \
             --load \
+            --pull=missing \
+            -t goharbor/harbor-prepare-base:${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
             -f make/photon/prepare/Dockerfile.base \
             make/photon/prepare/
 
+          # Verify the image was built
+          if ! docker image inspect goharbor/harbor-prepare-base:${VERSION} >/dev/null 2>&1; then
+            echo "ERROR: Failed to build harbor-prepare-base:${VERSION}"
+            exit 1
+          fi
+          echo "✅ Successfully built harbor-prepare-base:${VERSION}"
+
+          # Also tag with the exact version tag format Harbor expects
+          docker tag goharbor/harbor-prepare-base:${VERSION} goharbor/prepare:${VERSION_TAG}
+          docker tag goharbor/harbor-prepare-base:${VERSION} ${DOCKER_USERNAME}/prepare:${VERSION_TAG}
+
           # Build other base images if they exist
-          for base_dockerfile in $(find make/photon -name "Dockerfile.base" -o -name "*.base"); do
-            if [ -f "$base_dockerfile" ]; then
+          for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); do
+            if [ -f "$base_dockerfile" ] && [ "$base_dockerfile" != "make/photon/prepare/Dockerfile.base" ]; then
               component_dir=$(dirname $base_dockerfile)
               component_name=$(basename $component_dir)
               echo "Building base image for ${component_name}..."
               docker buildx build \
                 --platform linux/arm64 \
                 --load \
+                -t goharbor/harbor-${component_name}-base:${VERSION} \
                 -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
                 -f $base_dockerfile \
                 $component_dir/ || echo "Warning: Failed to build base image for ${component_name}"
             fi
           done
 
-          # List built base images
-          echo "Built base images:"
-          docker images | grep ${DOCKER_USERNAME} | grep base || true
+          # List all images to verify
+          echo "========== All Docker images =========="
+          docker images --format "table {{.Repository}}:{{.Tag}}" | sort
+          echo "======================================="
 
       - name: Build Harbor for ARM64
         run: |
@@ -138,14 +168,27 @@ jobs:
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
 
-          # Patch Dockerfiles to use our ARM64 base images
-          find make/photon -name "Dockerfile" -exec sed -i \
-            "s|FROM goharbor/\(.*-base\):\(.*\)|FROM ${DOCKER_USERNAME}/\1:\2|g" {} \;
+          # Debug: Check what base image the prepare Dockerfile is trying to use
+          echo "========== Checking prepare Dockerfile FROM lines =========="
+          grep "^FROM" make/photon/prepare/Dockerfile || true
+          echo "============================================================"
+
+          # Verify our base image is available
+          echo "Checking for harbor-prepare-base:${VERSION}..."
+          if docker image inspect goharbor/harbor-prepare-base:${VERSION} >/dev/null 2>&1; then
+            echo "✅ Found local harbor-prepare-base:${VERSION}"
+          else
+            echo "❌ ERROR: harbor-prepare-base:${VERSION} not found locally!"
+            echo "Available images:"
+            docker images | grep -E "(harbor|prepare)" | head -20
+            exit 1
+          fi
 
           # We're on native ARM64 - build normally!
           echo "Building on native ARM64 runner..."
           echo "Architecture: $(uname -m)"
 
+          # The base images are already built with goharbor namespace, so use that
           make compile build \
             GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage \
@@ -155,7 +198,7 @@ jobs:
             BUILD_INSTALLER=true \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION} \
-            BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
+            BASEIMAGENAMESPACE=goharbor \
             IMAGENAMESPACE=${DOCKER_USERNAME} \
             REGISTRYSERVER="" \
             DEVFLAG=false
