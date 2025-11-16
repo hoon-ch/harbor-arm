@@ -157,11 +157,32 @@ jobs:
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
           GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
-          # Patch photon Makefile to remove exporter from buildcompt target
-          sed -i 's/_compile_and_build_exporter//g' make/photon/Makefile
-
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
+
+          # Download registry binary for ARM64
+          echo "========== Downloading registry binary for ARM64 =========="
+          # Harbor uses distribution/distribution project for registry
+          # We need to download or build the registry binary for ARM64
+          mkdir -p make/photon/registry/binary
+          mkdir -p make/photon/registryctl/binary
+
+          # Download pre-built registry binary from Docker Distribution project
+          REGISTRY_VERSION="2.8.3"
+          echo "Downloading registry binary v${REGISTRY_VERSION} for ARM64..."
+
+          # Build registry from source for ARM64
+          CURRENT_DIR=$(pwd)
+          git clone --depth 1 --branch v${REGISTRY_VERSION} https://github.com/distribution/distribution.git /tmp/distribution || true
+          cd /tmp/distribution
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o registry ./cmd/registry
+          chmod +x registry
+          cp registry ${CURRENT_DIR}/make/photon/registry/binary/
+          cp registry ${CURRENT_DIR}/make/photon/registryctl/binary/
+          cd ${CURRENT_DIR}
+
+          echo "Registry binary built and copied"
+          ls -lh make/photon/registry/binary/ || echo "Registry binary dir not found"
 
           # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
           echo "========== Patching Harbor Makefile to disable image pulling =========="
@@ -207,14 +228,21 @@ jobs:
           # NUCLEAR OPTION: Skip Harbor's build system and build manually
           echo "========== Building Harbor components manually =========="
 
-          # First, compile the Go binaries
+          # First, compile the Go binaries (including exporter)
           echo "Compiling Go binaries..."
           make compile \
             GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
             NOTARYFLAG=false \
-            TRIVYFLAG=true
+            TRIVYFLAG=true \
+            GOBUILDTAGS="include_oss include_gcs"
+
+          # Compile exporter separately
+          echo "Compiling exporter..."
+          make compile_exporter \
+            GOBUILDIMAGE=golang:1.24 \
+            COMPILETAG=compile_golangimage || echo "Exporter compile may have failed, continuing..."
 
           # Now build each Docker image manually using regular docker build
           # We're on native ARM64 so we don't need buildx!
@@ -271,8 +299,33 @@ jobs:
             fi
           done
 
-          # Note: registry, registryctl, trivy-adapter are not built
-          # They require binary files that aren't compiled in our build process
+          # Build registry and registryctl (now that we have the registry binary)
+          echo "Building registry..."
+          docker build \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${VERSION} \
+            -t ${DOCKER_USERNAME}/registry-photon:${VERSION_TAG} \
+            -f make/photon/registry/Dockerfile \
+            . || echo "Warning: Failed to build registry"
+
+          echo "Building registryctl..."
+          docker build \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${VERSION} \
+            -t ${DOCKER_USERNAME}/harbor-registryctl:${VERSION_TAG} \
+            -f make/photon/registryctl/Dockerfile \
+            . || echo "Warning: Failed to build registryctl"
+
+          # Build exporter
+          echo "Building exporter..."
+          docker build \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${VERSION} \
+            -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
+            -f make/photon/exporter/Dockerfile \
+            . || echo "Warning: Failed to build exporter"
+
+          # Note: trivy-adapter requires scanner-trivy binary (not built yet)
 
           echo "========== Listing built images =========="
           docker images | grep ${DOCKER_USERNAME}
@@ -301,6 +354,7 @@ jobs:
             ["redis"]="redis-photon"
             ["registry"]="registry-photon"
             ["registryctl"]="harbor-registryctl"
+            ["exporter"]="harbor-exporter"
             ["trivy-adapter"]="trivy-adapter-photon"
           )
 
@@ -308,8 +362,8 @@ jobs:
           echo "All available images:"
           docker images --format "table {{.Repository}}:{{.Tag}}" | sort
 
-          # Only push components we actually built (excluding registry, registryctl, trivy-adapter)
-          for component in prepare core db jobservice log nginx portal redis; do
+          # Push all built components (including registry, registryctl, exporter)
+          for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
             IMAGE_NAME="${IMAGE_NAMES[$component]}"
             SOURCE_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
