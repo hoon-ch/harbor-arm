@@ -257,6 +257,18 @@ jobs:
             GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage || echo "Exporter compile may have failed, continuing..."
 
+          # Verify exporter binary was created
+          echo "Checking for exporter binary..."
+          if [ -f "make/photon/exporter/harbor_exporter" ]; then
+            echo "✅ Exporter binary found"
+            ls -lh make/photon/exporter/harbor_exporter
+            file make/photon/exporter/harbor_exporter
+          else
+            echo "⚠️ Exporter binary not found at make/photon/exporter/harbor_exporter"
+            echo "Searching for exporter binary..."
+            find . -name "harbor_exporter" -o -name "exporter" 2>/dev/null | grep -v node_modules || true
+          fi
+
           # Now build each Docker image manually using regular docker build
           # We're on native ARM64 so we don't need buildx!
           echo "Building Docker images manually..."
@@ -331,12 +343,18 @@ jobs:
 
           # Build exporter
           echo "Building exporter..."
-          docker build \
+          if docker build \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
             -f make/photon/exporter/Dockerfile \
-            . || echo "Warning: Failed to build exporter"
+            .; then
+            echo "✅ Exporter image built successfully"
+          else
+            echo "❌ Warning: Failed to build exporter image"
+            echo "Checking Dockerfile location..."
+            ls -la make/photon/exporter/ || true
+          fi
 
           # Note: trivy-adapter requires scanner-trivy binary (not built yet)
 
