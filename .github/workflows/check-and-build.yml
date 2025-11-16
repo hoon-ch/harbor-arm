@@ -166,25 +166,38 @@ jobs:
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
 
-          # Debug: Check what base image the prepare Dockerfile is trying to use
-          echo "========== Checking prepare Dockerfile FROM lines =========="
-          grep "^FROM" make/photon/prepare/Dockerfile || true
-          echo "============================================================"
+          # CRITICAL FIX: Replace all references to goharbor base images with local ARM64 versions
+          echo "========== Patching Dockerfiles to use local ARM64 base images =========="
 
-          # Verify our base image is available
-          echo "Checking for harbor-prepare-base:${VERSION}..."
-          if docker image inspect goharbor/harbor-prepare-base:${VERSION} >/dev/null 2>&1; then
-            echo "✅ Found local harbor-prepare-base:${VERSION}"
-          else
-            echo "❌ ERROR: harbor-prepare-base:${VERSION} not found locally!"
-            echo "Available images:"
-            docker images | grep -E "(harbor|prepare)" | head -20
-            exit 1
-          fi
+          # Find all Dockerfiles and patch them to use local images
+          for dockerfile in $(find make/photon -name "Dockerfile" -type f); do
+            echo "Patching $dockerfile..."
+            # Replace goharbor/harbor-prepare-base references
+            sed -i "s|FROM goharbor/harbor-prepare-base:.*|FROM goharbor/harbor-prepare-base:${VERSION}|g" $dockerfile
+            # Show what we changed
+            grep "^FROM.*harbor-prepare-base" $dockerfile || true
+          done
+
+          # Also check and patch ARG lines that might reference base images
+          find make/photon -name "Dockerfile" -exec sed -i \
+            "s|ARG harbor_base_namespace=.*|ARG harbor_base_namespace=goharbor|g" {} \;
+          find make/photon -name "Dockerfile" -exec sed -i \
+            "s|ARG harbor_base_image_version=.*|ARG harbor_base_image_version=${VERSION}|g" {} \;
+
+          echo "========================================================="
+
+          # List all our local ARM64 images
+          echo "========== Available local Docker images =========="
+          docker images | grep -E "(goharbor|${DOCKER_USERNAME})" | head -20
+          echo "===================================================="
 
           # We're on native ARM64 - build normally!
           echo "Building on native ARM64 runner..."
           echo "Architecture: $(uname -m)"
+
+          # Use buildx to ensure we're building for ARM64
+          export DOCKER_CLI_EXPERIMENTAL=enabled
+          export BUILDKIT_PROGRESS=plain
 
           # The base images are already built with goharbor namespace, so use that
           make compile build \
@@ -199,7 +212,8 @@ jobs:
             BASEIMAGENAMESPACE=goharbor \
             IMAGENAMESPACE=${DOCKER_USERNAME} \
             REGISTRYSERVER="" \
-            DEVFLAG=false
+            DEVFLAG=false \
+            DOCKERBUILD_OPTS="--platform linux/arm64"
 
       - name: Tag and push ARM64 images
         run: |
