@@ -32,12 +32,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -54,7 +48,6 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${{ secrets.DOCKER_USERNAME }}/harbor-db:${{ env.VERSION }} \
             -t ghcr.io/${{ github.actor }}/harbor-db:${{ env.VERSION }} \
             -f make/photon/db/Dockerfile \
             --build-arg PGBINDIR=/usr/bin \
@@ -64,7 +57,6 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${{ secrets.DOCKER_USERNAME }}/harbor-redis:${{ env.VERSION }} \
             -t ghcr.io/${{ github.actor }}/harbor-redis:${{ env.VERSION }} \
             -f make/photon/redis/Dockerfile \
             .
@@ -73,11 +65,10 @@ jobs:
         working-directory: harbor
         run: |
           VERSION_TAG=${{ env.VERSION }}
-          DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           GITHUB_REPO_OWNER=${{ github.actor }}
 
           echo "========== Preparing build for ARM64 =========="
-          echo "Docker Hub username: ${DOCKER_USERNAME}"
+          echo "GitHub Repository Owner: ${GITHUB_REPO_OWNER}"
           echo "Version: ${VERSION_TAG}"
 
           # Build for ARM64
@@ -89,7 +80,6 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${DOCKER_USERNAME}/harbor-portal:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-portal:${VERSION_TAG} \
             -f make/photon/portal/Dockerfile \
             .
@@ -99,7 +89,7 @@ jobs:
             --platform linux/arm64 \
             --push \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
-            -t ${DOCKER_USERNAME}/harbor-core:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-core:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-core:${VERSION_TAG} \
             -f make/photon/core/Dockerfile \
             .
@@ -109,7 +99,7 @@ jobs:
             --platform linux/arm64 \
             --push \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
-            -t ${DOCKER_USERNAME}/harbor-jobservice:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-jobservice:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-jobservice:${VERSION_TAG} \
             -f make/photon/jobservice/Dockerfile \
             .
@@ -119,7 +109,7 @@ jobs:
             --platform linux/arm64 \
             --push \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
-            -t ${DOCKER_USERNAME}/harbor-registryctl:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registryctl:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registryctl:${VERSION_TAG} \
             -f make/photon/registryctl/Dockerfile \
             .
@@ -129,7 +119,7 @@ jobs:
             --platform linux/arm64 \
             --push \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
-            -t ${DOCKER_USERNAME}/harbor-registry:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registry:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registry:${VERSION_TAG} \
             -f make/photon/registry/Dockerfile \
             .
@@ -138,7 +128,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${DOCKER_USERNAME}/harbor-nginx:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-nginx:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-nginx:${VERSION_TAG} \
             -f make/photon/nginx/Dockerfile \
             .
@@ -147,7 +137,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${DOCKER_USERNAME}/harbor-log:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-log:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-log:${VERSION_TAG} \
             -f make/photon/log/Dockerfile \
             .
@@ -168,12 +158,11 @@ jobs:
             --platform linux/arm64 \
             --push \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
-            -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
+            -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-exporter:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-exporter:${VERSION_TAG} \
             -f make/photon/exporter/Dockerfile \
             .
 
           echo "========== Build complete! =========="
-          echo "Images pushed to:"
-          echo "  - Docker Hub: ${DOCKER_USERNAME}/harbor-*:${VERSION_TAG}"
-          echo "  - GitHub Container Registry: ghcr.io/${GITHUB_REPO_OWNER}/harbor-*:${VERSION_TAG}"
+          echo "Images pushed to GitHub Container Registry:"
+          echo "  - ghcr.io/${GITHUB_REPO_OWNER}/harbor-*:${VERSION_TAG}"
