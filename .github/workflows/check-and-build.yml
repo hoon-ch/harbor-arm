@@ -182,15 +182,15 @@ jobs:
           go mod vendor
 
           # Build registry binary
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o registry ./cmd/registry
-          chmod +x registry
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o /tmp/registry-bin ./cmd/registry
+          chmod +x /tmp/registry-bin
 
           # Verify binary architecture
-          file registry
+          file /tmp/registry-bin
 
           # Copy to Harbor build directories
-          cp registry ${CURRENT_DIR}/make/photon/registry/binary/
-          cp registry ${CURRENT_DIR}/make/photon/registryctl/binary/
+          cp /tmp/registry-bin ${CURRENT_DIR}/make/photon/registry/binary/registry
+          cp /tmp/registry-bin ${CURRENT_DIR}/make/photon/registryctl/binary/registry
           cd ${CURRENT_DIR}
 
           echo "Registry binary built and copied"
