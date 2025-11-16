@@ -166,23 +166,29 @@ jobs:
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
 
-          # CRITICAL FIX: Replace all references to goharbor base images with local ARM64 versions
+          # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
+          echo "========== Patching Harbor Makefile to disable image pulling =========="
+
+          # Find and patch all Makefile references to docker build
+          # Replace '--pull' with '--pull=never' to force using local images
+          find make/photon -name "Makefile" -exec sed -i 's/--pull[^=]/--pull=never /g' {} \;
+          find make/photon -name "Makefile" -exec sed -i 's/docker build /docker build --pull=never /g' {} \;
+
+          # Also patch the main Makefile
+          sed -i 's/--pull[^=]/--pull=never /g' make/photon/Makefile || true
+
           echo "========== Patching Dockerfiles to use local ARM64 base images =========="
 
-          # Find all Dockerfiles and patch them to use local images
+          # Directly replace FROM lines with ARG variables to hardcoded values
           for dockerfile in $(find make/photon -name "Dockerfile" -type f); do
             echo "Patching $dockerfile..."
-            # Replace goharbor/harbor-prepare-base references
+            # Replace FROM lines that use variables
+            sed -i "s|FROM \${harbor_base_namespace}/harbor-prepare-base:\${harbor_base_image_version}|FROM goharbor/harbor-prepare-base:${VERSION}|g" $dockerfile
+            # Also handle non-variable format
             sed -i "s|FROM goharbor/harbor-prepare-base:.*|FROM goharbor/harbor-prepare-base:${VERSION}|g" $dockerfile
-            # Show what we changed
-            grep "^FROM.*harbor-prepare-base" $dockerfile || true
+            # Show what we have now
+            grep "FROM.*prepare-base" $dockerfile || true
           done
-
-          # Also check and patch ARG lines that might reference base images
-          find make/photon -name "Dockerfile" -exec sed -i \
-            "s|ARG harbor_base_namespace=.*|ARG harbor_base_namespace=goharbor|g" {} \;
-          find make/photon -name "Dockerfile" -exec sed -i \
-            "s|ARG harbor_base_image_version=.*|ARG harbor_base_image_version=${VERSION}|g" {} \;
 
           echo "========================================================="
 
