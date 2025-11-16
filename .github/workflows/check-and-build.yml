@@ -110,12 +110,10 @@ jobs:
           # Build harbor-prepare-base for ARM64 - this is the critical one
           echo "Building harbor-prepare-base:${VERSION} for ARM64..."
 
-          # Use --pull=never to avoid pulling AMD64 images if the base exists locally
-          # Otherwise use --pull=missing
+          # Build with proper pull strategy
           docker buildx build \
             --platform linux/arm64 \
             --load \
-            --pull=missing \
             -t goharbor/harbor-prepare-base:${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
             -f make/photon/prepare/Dockerfile.base \
