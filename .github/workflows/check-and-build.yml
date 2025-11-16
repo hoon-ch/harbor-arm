@@ -84,6 +84,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build base images for ARM64
+        run: |
+          cd harbor
+
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          echo "Building base images for ARM64..."
+          echo "Architecture: $(uname -m)"
+
+          # Build harbor-prepare-base for ARM64
+          echo "Building harbor-prepare-base:${VERSION} for ARM64..."
+          docker buildx build \
+            --platform linux/arm64 \
+            --load \
+            -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
+            -f make/photon/prepare/Dockerfile.base \
+            make/photon/prepare/
+
+          # Build other base images if they exist
+          for base_dockerfile in $(find make/photon -name "Dockerfile.base" -o -name "*.base"); do
+            if [ -f "$base_dockerfile" ]; then
+              component_dir=$(dirname $base_dockerfile)
+              component_name=$(basename $component_dir)
+              echo "Building base image for ${component_name}..."
+              docker buildx build \
+                --platform linux/arm64 \
+                --load \
+                -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
+                -f $base_dockerfile \
+                $component_dir/ || echo "Warning: Failed to build base image for ${component_name}"
+            fi
+          done
+
+          # List built base images
+          echo "Built base images:"
+          docker images | grep ${DOCKER_USERNAME} | grep base || true
+
       - name: Build Harbor for ARM64
         run: |
           cd harbor
@@ -99,6 +138,10 @@ jobs:
           # Skip API linting to avoid Spectral build issues
           sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
 
+          # Patch Dockerfiles to use our ARM64 base images
+          find make/photon -name "Dockerfile" -exec sed -i \
+            "s|FROM goharbor/\(.*-base\):\(.*\)|FROM ${DOCKER_USERNAME}/\1:\2|g" {} \;
+
           # We're on native ARM64 - build normally!
           echo "Building on native ARM64 runner..."
           echo "Architecture: $(uname -m)"
@@ -112,7 +155,7 @@ jobs:
             BUILD_INSTALLER=true \
             VERSIONTAG=${VERSION_TAG} \
             BASEIMAGETAG=${VERSION} \
-            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGENAMESPACE=${DOCKER_USERNAME} \
             IMAGENAMESPACE=${DOCKER_USERNAME} \
             REGISTRYSERVER="" \
             DEVFLAG=false
