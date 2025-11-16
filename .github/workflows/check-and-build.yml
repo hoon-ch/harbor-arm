@@ -1,15 +1,15 @@
 name: Check and Build Harbor ARM64
 
 on:
-  schedule:
-    # Run daily at 00:00 UTC
-    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       version:
         description: 'Harbor version to build (e.g., v2.11.0)'
         required: false
         type: string
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
 
 env:
   HARBOR_REPO: goharbor/harbor
