@@ -167,13 +167,21 @@ jobs:
 
           # Build registry from source for ARM64
           CURRENT_DIR=$(pwd)
-          REGISTRY_VERSION="2.8.3"
 
-          echo "Cloning and building registry v${REGISTRY_VERSION} for ARM64..."
-          git clone --depth 1 --branch v${REGISTRY_VERSION} https://github.com/distribution/distribution.git /tmp/distribution
+          echo "Cloning and building registry from main branch for ARM64..."
+          git clone --depth 1 https://github.com/distribution/distribution.git /tmp/distribution
           cd /tmp/distribution
 
-          # Build registry binary (go build will auto-download dependencies)
+          # Verify go.mod exists and download dependencies
+          if [ ! -f "go.mod" ]; then
+            echo "ERROR: go.mod not found in distribution repository"
+            exit 1
+          fi
+
+          echo "go.mod found, downloading dependencies..."
+          go mod vendor
+
+          # Build registry binary
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o registry ./cmd/registry
           chmod +x registry
 
