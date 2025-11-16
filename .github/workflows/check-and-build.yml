@@ -169,13 +169,19 @@ jobs:
           # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
           echo "========== Patching Harbor Makefile to disable image pulling =========="
 
-          # Find and patch all Makefile references to docker build
-          # Replace '--pull' with '--pull=never' to force using local images
-          find make/photon -name "Makefile" -exec sed -i 's/--pull[^=]/--pull=never /g' {} \;
+          # Harbor uses DOCKERBUILD variable - patch it to include --pull=never
+          # This works for both docker build and docker buildx build
+          sed -i 's/DOCKERBUILD\s*?=\s*docker/DOCKERBUILD ?= docker/g' make/photon/Makefile
+          sed -i '/DOCKERBUILD.*:=/s/$/ --pull=never/' make/photon/Makefile
+          sed -i '/DOCKERBUILD.*?=/s/$/ --pull=never/' make/photon/Makefile
+
+          # Also patch any direct docker/buildx build commands
+          find make/photon -name "Makefile" -exec sed -i 's/docker buildx build /docker buildx build --pull=never /g' {} \;
           find make/photon -name "Makefile" -exec sed -i 's/docker build /docker build --pull=never /g' {} \;
 
-          # Also patch the main Makefile
-          sed -i 's/--pull[^=]/--pull=never /g' make/photon/Makefile || true
+          # Show what we patched
+          echo "Checking DOCKERBUILD variable:"
+          grep "DOCKERBUILD" make/photon/Makefile || echo "DOCKERBUILD not found"
 
           echo "========== Patching Dockerfiles to use local ARM64 base images =========="
 
