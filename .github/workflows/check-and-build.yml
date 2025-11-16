@@ -229,10 +229,12 @@ jobs:
             -f make/photon/prepare/Dockerfile \
             .
 
-          # Build other core images
+          # Build other core images - need to pass build args!
           for component in core jobservice registryctl; do
             echo "Building $component..."
             docker build \
+              --build-arg harbor_base_namespace=goharbor \
+              --build-arg harbor_base_image_version=${VERSION} \
               -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
               -f make/photon/$component/Dockerfile \
               . || echo "Warning: Failed to build $component"
@@ -251,6 +253,8 @@ jobs:
               esac
 
               docker build \
+                --build-arg harbor_base_namespace=goharbor \
+                --build-arg harbor_base_image_version=${VERSION} \
                 -t ${DOCKER_USERNAME}/$image_name:${VERSION_TAG} \
                 -f make/photon/$component/Dockerfile \
                 . || echo "Warning: Failed to build $component"
@@ -261,6 +265,8 @@ jobs:
           if [ -d "make/photon/trivy-adapter" ]; then
             echo "Building trivy-adapter..."
             docker build \
+              --build-arg harbor_base_namespace=goharbor \
+              --build-arg harbor_base_image_version=${VERSION} \
               -t ${DOCKER_USERNAME}/trivy-adapter-photon:${VERSION_TAG} \
               -f make/photon/trivy-adapter/Dockerfile \
               . || echo "Warning: Failed to build trivy-adapter"
