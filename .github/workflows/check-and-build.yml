@@ -230,7 +230,8 @@ jobs:
             .
 
           # Build other core images - need to pass build args!
-          for component in core jobservice registryctl; do
+          # (registryctl excluded - needs registry binary)
+          for component in core jobservice; do
             echo "Building $component..."
             docker build \
               --build-arg harbor_base_namespace=goharbor \
@@ -240,15 +241,24 @@ jobs:
               . || echo "Warning: Failed to build $component"
           done
 
-          # Build portal, nginx, log, db, redis, registry
-          for component in portal nginx log db redis registry; do
+          # Build portal with NODE argument
+          echo "Building portal..."
+          docker build \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${VERSION} \
+            --build-arg NODE=node:16.18.0 \
+            -t ${DOCKER_USERNAME}/harbor-portal:${VERSION_TAG} \
+            -f make/photon/portal/Dockerfile \
+            . || echo "Warning: Failed to build portal"
+
+          # Build nginx, log, db, redis (registry/registryctl/trivy-adapter need binaries)
+          for component in nginx log db redis; do
             echo "Building $component..."
             if [ -d "make/photon/$component" ]; then
               # Determine output image name
               case $component in
                 nginx) image_name="nginx-photon" ;;
                 redis) image_name="redis-photon" ;;
-                registry) image_name="registry-photon" ;;
                 *) image_name="harbor-$component" ;;
               esac
 
@@ -261,16 +271,8 @@ jobs:
             fi
           done
 
-          # Build trivy-adapter if it exists
-          if [ -d "make/photon/trivy-adapter" ]; then
-            echo "Building trivy-adapter..."
-            docker build \
-              --build-arg harbor_base_namespace=goharbor \
-              --build-arg harbor_base_image_version=${VERSION} \
-              -t ${DOCKER_USERNAME}/trivy-adapter-photon:${VERSION_TAG} \
-              -f make/photon/trivy-adapter/Dockerfile \
-              . || echo "Warning: Failed to build trivy-adapter"
-          fi
+          # Note: registry, registryctl, trivy-adapter are not built
+          # They require binary files that aren't compiled in our build process
 
           echo "========== Listing built images =========="
           docker images | grep ${DOCKER_USERNAME}
@@ -306,7 +308,8 @@ jobs:
           echo "All available images:"
           docker images --format "table {{.Repository}}:{{.Tag}}" | sort
 
-          for component in prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter; do
+          # Only push components we actually built (excluding registry, registryctl, trivy-adapter)
+          for component in prepare core db jobservice log nginx portal redis; do
             IMAGE_NAME="${IMAGE_NAMES[$component]}"
             SOURCE_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
