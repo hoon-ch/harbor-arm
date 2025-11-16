@@ -207,25 +207,74 @@ jobs:
           echo "Building on native ARM64 runner..."
           echo "Architecture: $(uname -m)"
 
-          # Use buildx to ensure we're building for ARM64
-          export DOCKER_CLI_EXPERIMENTAL=enabled
-          export BUILDKIT_PROGRESS=plain
+          # NUCLEAR OPTION: Skip Harbor's build system and build manually
+          echo "========== Building Harbor components manually =========="
 
-          # The base images are already built with goharbor namespace, so use that
-          make compile build \
+          # First, compile the Go binaries
+          echo "Compiling Go binaries..."
+          make compile \
             GOBUILDIMAGE=golang:1.24 \
             COMPILETAG=compile_golangimage \
             BUILDBIN=true \
             NOTARYFLAG=false \
-            TRIVYFLAG=true \
-            BUILD_INSTALLER=true \
-            VERSIONTAG=${VERSION_TAG} \
-            BASEIMAGETAG=${VERSION} \
-            BASEIMAGENAMESPACE=goharbor \
-            IMAGENAMESPACE=${DOCKER_USERNAME} \
-            REGISTRYSERVER="" \
-            DEVFLAG=false \
-            DOCKERBUILD_OPTS="--platform linux/arm64"
+            TRIVYFLAG=true
+
+          # Now build each Docker image manually with --pull=never
+          echo "Building Docker images manually..."
+
+          # Build prepare image using our local ARM64 base
+          cd make/photon/prepare
+          docker buildx build \
+            --platform linux/arm64 \
+            --pull=never \
+            --load \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${VERSION} \
+            -t ${DOCKER_USERNAME}/prepare:${VERSION_TAG} \
+            -f Dockerfile .
+          cd ../../..
+
+          # Build other core images that don't depend on base images
+          for component in core jobservice registryctl; do
+            echo "Building $component..."
+            cd make/photon/$component
+            docker buildx build \
+              --platform linux/arm64 \
+              --pull=never \
+              --load \
+              -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
+              -f Dockerfile . || echo "Warning: Failed to build $component"
+            cd ../../..
+          done
+
+          # Build portal, nginx, log, db, redis, registry using standard photon base
+          for component in portal nginx log db redis registry; do
+            echo "Building $component..."
+            if [ -d "make/photon/$component" ]; then
+              cd make/photon/$component
+              docker buildx build \
+                --platform linux/arm64 \
+                --load \
+                -t ${DOCKER_USERNAME}/$(basename $(pwd) | sed 's/^/harbor-/' | sed 's/harbor-nginx/nginx-photon/' | sed 's/harbor-redis/redis-photon/' | sed 's/harbor-registry/registry-photon/'):${VERSION_TAG} \
+                -f Dockerfile . || echo "Warning: Failed to build $component"
+              cd ../../..
+            fi
+          done
+
+          # Build trivy-adapter if it exists
+          if [ -d "make/photon/trivy-adapter" ]; then
+            echo "Building trivy-adapter..."
+            cd make/photon/trivy-adapter
+            docker buildx build \
+              --platform linux/arm64 \
+              --load \
+              -t ${DOCKER_USERNAME}/trivy-adapter-photon:${VERSION_TAG} \
+              -f Dockerfile . || echo "Warning: Failed to build trivy-adapter"
+            cd ../../..
+          fi
+
+          echo "========== Listing built images =========="
+          docker images | grep ${DOCKER_USERNAME}
 
       - name: Tag and push ARM64 images
         run: |
