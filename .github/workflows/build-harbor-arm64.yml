@@ -1,12 +1,6 @@
 name: Check and Build Harbor ARM64
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
   workflow_dispatch:
     inputs:
       version:
