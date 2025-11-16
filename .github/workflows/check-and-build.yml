@@ -110,9 +110,10 @@ jobs:
           # Build harbor-prepare-base for ARM64 - this is the critical one
           echo "Building harbor-prepare-base:${VERSION} for ARM64..."
 
-          # Build with proper pull strategy
+          # Build with proper pull strategy (--pull=false means use local cache first)
           docker buildx build \
             --platform linux/arm64 \
+            --pull=false \
             --load \
             -t goharbor/harbor-prepare-base:${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
@@ -138,6 +139,7 @@ jobs:
               echo "Building base image for ${component_name}..."
               docker buildx build \
                 --platform linux/arm64 \
+                --pull=false \
                 --load \
                 -t goharbor/harbor-${component_name}-base:${VERSION} \
                 -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
@@ -169,15 +171,15 @@ jobs:
           # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
           echo "========== Patching Harbor Makefile to disable image pulling =========="
 
-          # Harbor uses DOCKERBUILD variable - patch it to include --pull=never
-          # This works for both docker build and docker buildx build
+          # Harbor uses DOCKERBUILD variable - patch it to include --pull=false
+          # Note: buildx uses boolean values (true/false), not "never"
           sed -i 's/DOCKERBUILD\s*?=\s*docker/DOCKERBUILD ?= docker/g' make/photon/Makefile
-          sed -i '/DOCKERBUILD.*:=/s/$/ --pull=never/' make/photon/Makefile
-          sed -i '/DOCKERBUILD.*?=/s/$/ --pull=never/' make/photon/Makefile
+          sed -i '/DOCKERBUILD.*:=/s/$/ --pull=false/' make/photon/Makefile
+          sed -i '/DOCKERBUILD.*?=/s/$/ --pull=false/' make/photon/Makefile
 
           # Also patch any direct docker/buildx build commands
-          find make/photon -name "Makefile" -exec sed -i 's/docker buildx build /docker buildx build --pull=never /g' {} \;
-          find make/photon -name "Makefile" -exec sed -i 's/docker build /docker build --pull=never /g' {} \;
+          find make/photon -name "Makefile" -exec sed -i 's/docker buildx build /docker buildx build --pull=false /g' {} \;
+          find make/photon -name "Makefile" -exec sed -i 's/docker build /docker build --pull=false /g' {} \;
 
           # Show what we patched
           echo "Checking DOCKERBUILD variable:"
@@ -226,7 +228,7 @@ jobs:
           cd make/photon/prepare
           docker buildx build \
             --platform linux/arm64 \
-            --pull=never \
+            --pull=false \
             --load \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION} \
@@ -240,7 +242,7 @@ jobs:
             cd make/photon/$component
             docker buildx build \
               --platform linux/arm64 \
-              --pull=never \
+              --pull=false \
               --load \
               -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
               -f Dockerfile . || echo "Warning: Failed to build $component"
@@ -254,6 +256,7 @@ jobs:
               cd make/photon/$component
               docker buildx build \
                 --platform linux/arm64 \
+                --pull=false \
                 --load \
                 -t ${DOCKER_USERNAME}/$(basename $(pwd) | sed 's/^/harbor-/' | sed 's/harbor-nginx/nginx-photon/' | sed 's/harbor-redis/redis-photon/' | sed 's/harbor-registry/registry-photon/'):${VERSION_TAG} \
                 -f Dockerfile . || echo "Warning: Failed to build $component"
@@ -267,6 +270,7 @@ jobs:
             cd make/photon/trivy-adapter
             docker buildx build \
               --platform linux/arm64 \
+              --pull=false \
               --load \
               -t ${DOCKER_USERNAME}/trivy-adapter-photon:${VERSION_TAG} \
               -f Dockerfile . || echo "Warning: Failed to build trivy-adapter"
