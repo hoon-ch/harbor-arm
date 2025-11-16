@@ -50,6 +50,8 @@ jobs:
             --push \
             -t ghcr.io/${{ github.actor }}/harbor-db:${{ env.VERSION }} \
             -f make/photon/db/Dockerfile \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${{ env.VERSION }} \
             --build-arg PGBINDIR=/usr/bin \
             .
 
@@ -59,6 +61,8 @@ jobs:
             --push \
             -t ghcr.io/${{ github.actor }}/harbor-redis:${{ env.VERSION }} \
             -f make/photon/redis/Dockerfile \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${{ env.VERSION }} \
             .
 
       - name: Build Harbor for ARM64
@@ -88,6 +92,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
+            --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-core:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-core:${VERSION_TAG} \
@@ -98,6 +103,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
+            --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-jobservice:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-jobservice:${VERSION_TAG} \
@@ -108,6 +114,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
+            --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registryctl:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registryctl:${VERSION_TAG} \
@@ -118,6 +125,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
+            --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registry:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-registry:${VERSION_TAG} \
@@ -157,6 +165,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
+            --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-exporter:${VERSION_TAG} \
             -t ghcr.io/${GITHUB_REPO_OWNER}/harbor-exporter:${VERSION_TAG} \
