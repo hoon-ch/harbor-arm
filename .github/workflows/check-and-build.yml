@@ -342,18 +342,38 @@ jobs:
             -f make/photon/registryctl/Dockerfile \
             . || echo "Warning: Failed to build registryctl"
 
-          # Build exporter
+          # Build exporter using our pre-built ARM64 binary
           echo "Building exporter..."
+          # Create a simple Dockerfile that uses our pre-built binary
+          cat > /tmp/Dockerfile.exporter << 'EOF'
+ARG harbor_base_namespace
+ARG harbor_base_image_version
+FROM ${harbor_base_namespace}/harbor-exporter-base:${harbor_base_image_version}
+
+COPY make/photon/exporter/harbor_exporter /harbor/harbor_exporter
+COPY ./make/photon/exporter/entrypoint.sh ./make/photon/common/install_cert.sh /harbor/
+
+RUN chown -R harbor:harbor /etc/pki/tls/certs \
+    && chown harbor:harbor /harbor/harbor_exporter && chmod u+x /harbor/harbor_exporter \
+    && chown harbor:harbor /harbor/entrypoint.sh && chmod u+x /harbor/entrypoint.sh \
+    && chown harbor:harbor /harbor/install_cert.sh && chmod u+x /harbor/install_cert.sh
+
+WORKDIR /harbor
+USER harbor
+
+ENTRYPOINT ["/harbor/entrypoint.sh"]
+EOF
+
           if docker build \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
-            -f make/photon/exporter/Dockerfile \
+            -f /tmp/Dockerfile.exporter \
             .; then
             echo "✅ Exporter image built successfully"
           else
             echo "❌ Warning: Failed to build exporter image"
-            echo "Checking Dockerfile location..."
+            echo "Checking binary location..."
             ls -la make/photon/exporter/ || true
           fi
 
