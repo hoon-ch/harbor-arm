@@ -110,11 +110,9 @@ jobs:
           # Build harbor-prepare-base for ARM64 - this is the critical one
           echo "Building harbor-prepare-base:${VERSION} for ARM64..."
 
-          # Build with proper pull strategy (--pull=false means use local cache first)
-          docker buildx build \
-            --platform linux/arm64 \
-            --pull=false \
-            --load \
+          # Use regular docker build (not buildx) since we're on native ARM64
+          # This prevents buildx from pulling remote AMD64 images
+          docker build \
             -t goharbor/harbor-prepare-base:${VERSION} \
             -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
             -f make/photon/prepare/Dockerfile.base \
@@ -137,10 +135,7 @@ jobs:
               component_dir=$(dirname $base_dockerfile)
               component_name=$(basename $component_dir)
               echo "Building base image for ${component_name}..."
-              docker buildx build \
-                --platform linux/arm64 \
-                --pull=false \
-                --load \
+              docker build \
                 -t goharbor/harbor-${component_name}-base:${VERSION} \
                 -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
                 -f $base_dockerfile \
@@ -221,60 +216,54 @@ jobs:
             NOTARYFLAG=false \
             TRIVYFLAG=true
 
-          # Now build each Docker image manually with --pull=never
+          # Now build each Docker image manually using regular docker build
+          # We're on native ARM64 so we don't need buildx!
           echo "Building Docker images manually..."
 
           # Build prepare image using our local ARM64 base
-          cd make/photon/prepare
-          docker buildx build \
-            --platform linux/arm64 \
-            --pull=false \
-            --load \
+          # Use harbor root as context, specify Dockerfile with -f
+          docker build \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${VERSION} \
             -t ${DOCKER_USERNAME}/prepare:${VERSION_TAG} \
-            -f Dockerfile .
-          cd ../../..
+            -f make/photon/prepare/Dockerfile \
+            .
 
-          # Build other core images that don't depend on base images
+          # Build other core images
           for component in core jobservice registryctl; do
             echo "Building $component..."
-            cd make/photon/$component
-            docker buildx build \
-              --platform linux/arm64 \
-              --pull=false \
-              --load \
+            docker build \
               -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
-              -f Dockerfile . || echo "Warning: Failed to build $component"
-            cd ../../..
+              -f make/photon/$component/Dockerfile \
+              . || echo "Warning: Failed to build $component"
           done
 
-          # Build portal, nginx, log, db, redis, registry using standard photon base
+          # Build portal, nginx, log, db, redis, registry
           for component in portal nginx log db redis registry; do
             echo "Building $component..."
             if [ -d "make/photon/$component" ]; then
-              cd make/photon/$component
-              docker buildx build \
-                --platform linux/arm64 \
-                --pull=false \
-                --load \
-                -t ${DOCKER_USERNAME}/$(basename $(pwd) | sed 's/^/harbor-/' | sed 's/harbor-nginx/nginx-photon/' | sed 's/harbor-redis/redis-photon/' | sed 's/harbor-registry/registry-photon/'):${VERSION_TAG} \
-                -f Dockerfile . || echo "Warning: Failed to build $component"
-              cd ../../..
+              # Determine output image name
+              case $component in
+                nginx) image_name="nginx-photon" ;;
+                redis) image_name="redis-photon" ;;
+                registry) image_name="registry-photon" ;;
+                *) image_name="harbor-$component" ;;
+              esac
+
+              docker build \
+                -t ${DOCKER_USERNAME}/$image_name:${VERSION_TAG} \
+                -f make/photon/$component/Dockerfile \
+                . || echo "Warning: Failed to build $component"
             fi
           done
 
           # Build trivy-adapter if it exists
           if [ -d "make/photon/trivy-adapter" ]; then
             echo "Building trivy-adapter..."
-            cd make/photon/trivy-adapter
-            docker buildx build \
-              --platform linux/arm64 \
-              --pull=false \
-              --load \
+            docker build \
               -t ${DOCKER_USERNAME}/trivy-adapter-photon:${VERSION_TAG} \
-              -f Dockerfile . || echo "Warning: Failed to build trivy-adapter"
-            cd ../../..
+              -f make/photon/trivy-adapter/Dockerfile \
+              . || echo "Warning: Failed to build trivy-adapter"
           fi
 
           echo "========== Listing built images =========="
