@@ -173,8 +173,7 @@ jobs:
           git clone --depth 1 --branch v${REGISTRY_VERSION} https://github.com/distribution/distribution.git /tmp/distribution
           cd /tmp/distribution
 
-          # Initialize go module and build
-          go mod download
+          # Build registry binary (go build will auto-download dependencies)
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o registry ./cmd/registry
           chmod +x registry
 
