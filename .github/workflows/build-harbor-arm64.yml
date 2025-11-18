@@ -229,6 +229,46 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Pull and retag images for integration testing
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          # Pull all built images
+          COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
+
+          for component in "${COMPONENTS[@]}"; do
+            IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            echo "Pulling ${IMAGE}..."
+            docker pull ${IMAGE} || echo "Warning: Failed to pull ${component}"
+          done
+
+          # Retag images to expected format for docker-compose.test.yml
+          declare -A IMAGE_NAMES=(
+            ["prepare"]="prepare"
+            ["core"]="harbor-core"
+            ["db"]="harbor-db"
+            ["jobservice"]="harbor-jobservice"
+            ["log"]="harbor-log"
+            ["nginx"]="nginx-photon"
+            ["portal"]="harbor-portal"
+            ["redis"]="redis-photon"
+            ["registry"]="registry-photon"
+            ["registryctl"]="harbor-registryctl"
+            ["exporter"]="harbor-exporter"
+          )
+
+          for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
+            SOURCE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            TARGET="${DOCKER_USERNAME}/${IMAGE_NAMES[$component]}:${VERSION_TAG}"
+
+            if docker image inspect ${SOURCE} >/dev/null 2>&1; then
+              docker tag ${SOURCE} ${TARGET}
+              echo "Tagged ${SOURCE} as ${TARGET}"
+            fi
+          done
+
       - name: Run integration tests
         run: |
           ./scripts/integration-test.sh \
@@ -263,6 +303,44 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull and retag images for API testing
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          # Pull all built images
+          COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
+
+          for component in "${COMPONENTS[@]}"; do
+            IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            docker pull ${IMAGE} || echo "Warning: Failed to pull ${component}"
+          done
+
+          # Retag images to expected format for docker-compose.test.yml
+          declare -A IMAGE_NAMES=(
+            ["prepare"]="prepare"
+            ["core"]="harbor-core"
+            ["db"]="harbor-db"
+            ["jobservice"]="harbor-jobservice"
+            ["log"]="harbor-log"
+            ["nginx"]="nginx-photon"
+            ["portal"]="harbor-portal"
+            ["redis"]="redis-photon"
+            ["registry"]="registry-photon"
+            ["registryctl"]="harbor-registryctl"
+            ["exporter"]="harbor-exporter"
+          )
+
+          for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
+            SOURCE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            TARGET="${DOCKER_USERNAME}/${IMAGE_NAMES[$component]}:${VERSION_TAG}"
+
+            if docker image inspect ${SOURCE} >/dev/null 2>&1; then
+              docker tag ${SOURCE} ${TARGET}
+            fi
+          done
 
       - name: Start Harbor for API testing
         run: |
@@ -319,6 +397,44 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull and retag images for benchmarking
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          # Pull all built images
+          COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
+
+          for component in "${COMPONENTS[@]}"; do
+            IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            docker pull ${IMAGE} || echo "Warning: Failed to pull ${component}"
+          done
+
+          # Retag images to expected format for docker-compose.test.yml
+          declare -A IMAGE_NAMES=(
+            ["prepare"]="prepare"
+            ["core"]="harbor-core"
+            ["db"]="harbor-db"
+            ["jobservice"]="harbor-jobservice"
+            ["log"]="harbor-log"
+            ["nginx"]="nginx-photon"
+            ["portal"]="harbor-portal"
+            ["redis"]="redis-photon"
+            ["registry"]="registry-photon"
+            ["registryctl"]="harbor-registryctl"
+            ["exporter"]="harbor-exporter"
+          )
+
+          for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
+            SOURCE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            TARGET="${DOCKER_USERNAME}/${IMAGE_NAMES[$component]}:${VERSION_TAG}"
+
+            if docker image inspect ${SOURCE} >/dev/null 2>&1; then
+              docker tag ${SOURCE} ${TARGET}
+            fi
+          done
 
       - name: Start Harbor for benchmarking
         run: |
