@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Harbor ARM64 Integration Test Docker Compose
 # This compose file is optimized for fast integration testing
 # Uses tmpfs for temporary data to avoid disk I/O bottlenecks
@@ -41,8 +39,6 @@ services:
       - redis_data:/var/lib/redis
     networks:
       - harbor-test
-    depends_on:
-      - log
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping || exit 1"]
       interval: 10s
@@ -68,8 +64,6 @@ services:
       - db_data:/var/lib/postgresql/data
     networks:
       - harbor-test
-    depends_on:
-      - log
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
       interval: 10s
@@ -88,12 +82,14 @@ services:
       - CHOWN
       - SETGID
       - SETUID
+    environment:
+      REGISTRY_HTTP_ADDR: ":5000"
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /storage
+      REGISTRY_HTTP_SECRET: test_secret
     volumes:
       - registry_data:/storage
     networks:
       - harbor-test
-    depends_on:
-      - log
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:5000/v2/ || exit 1"]
       interval: 10s
@@ -249,13 +245,10 @@ services:
       - "8080:8080"
       - "8443:8443"
     depends_on:
-      registry:
-        condition: service_healthy
+      - registry
       - core
-      portal:
-        condition: service_healthy
-      log:
-        condition: service_healthy
+      - portal
+      - log
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
       interval: 5s

@@ -104,6 +104,46 @@ run_test() {
     fi
 }
 
+# Test 0: Simple Container Test (Debug)
+log_section "Test 0: Simple Container Test (Debug)"
+
+SIMPLE_COMPOSE="docker-compose.simple.yml"
+if [ -f "$SIMPLE_COMPOSE" ]; then
+    log_info "Testing basic containers with simple compose..."
+    export DOCKER_USERNAME=$DOCKER_USERNAME
+    export VERSION_TAG=$VERSION_TAG
+
+    # Try to start simple containers
+    docker compose -f "$SIMPLE_COMPOSE" up -d 2>&1 || true
+
+    sleep 5
+
+    log_info "Simple container status:"
+    docker compose -f "$SIMPLE_COMPOSE" ps
+
+    # Test each service
+    log_info "Testing Redis..."
+    docker exec redis-simple redis-cli ping 2>&1 || log_error "Redis failed"
+
+    log_info "Testing PostgreSQL..."
+    docker exec postgresql-simple pg_isready -U postgres 2>&1 || log_error "PostgreSQL failed"
+
+    log_info "Testing Registry..."
+    curl -s http://localhost:5000/v2/ 2>&1 || log_error "Registry failed"
+
+    # Capture logs for debugging
+    for service in redis postgresql registry; do
+        log_info "Logs for $service:"
+        docker compose -f "$SIMPLE_COMPOSE" logs --tail=20 "$service" 2>&1 || true
+    done
+
+    # Cleanup simple test
+    docker compose -f "$SIMPLE_COMPOSE" down -v 2>/dev/null || true
+
+    log_info "Simple test completed - proceeding with full test..."
+    echo ""
+fi
+
 # Test 1: Start Harbor Stack
 log_section "Test 1: Starting Harbor Stack"
 
