@@ -33,12 +33,12 @@ list_images "goharbor|${DOCKER_USERNAME}"
 # Compile the Go binaries (including core, jobservice)
 log_section "Compiling Go Binaries"
 make compile \
-    GOBUILDIMAGE=golang:1.24 \
+    GOBUILDIMAGE=golang:${BUILD_CONFIG_GO_VERSION} \
     COMPILETAG=compile_golangimage \
     BUILDBIN=true \
-    NOTARYFLAG=false \
-    TRIVYFLAG=true \
-    GOBUILDTAGS="include_oss include_gcs"
+    NOTARYFLAG=${BUILD_FLAG_NOTARY} \
+    TRIVYFLAG=${BUILD_FLAG_TRIVY} \
+    GOBUILDTAGS="${BUILD_FLAG_GOBUILDTAGS}"
 
 log_success "Go binaries compiled"
 
@@ -95,9 +95,9 @@ done
 # Build portal with NODE argument
 log_info "Building portal..."
 if docker build \
-    --build-arg harbor_base_namespace=goharbor \
+    --build-arg harbor_base_namespace=${BUILD_CONFIG_HARBOR_BASE_NAMESPACE} \
     --build-arg harbor_base_image_version=${VERSION} \
-    --build-arg NODE=node:16.18.0 \
+    --build-arg NODE=node:${BUILD_CONFIG_NODE_VERSION} \
     -t ${DOCKER_USERNAME}/harbor-portal:${VERSION_TAG} \
     -f make/photon/portal/Dockerfile \
     .; then

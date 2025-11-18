@@ -2,6 +2,12 @@
 
 # Common utility functions for Harbor ARM64 build scripts
 
+# Load configuration
+SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR_COMMON}/config.sh" ]; then
+    source "${SCRIPT_DIR_COMMON}/config.sh"
+fi
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -143,6 +149,46 @@ end_timer() {
     log_info "Execution time: ${minutes}m ${seconds}s"
 }
 
+# Retry command with exponential backoff
+retry_command() {
+    local max_attempts=${RETRY_MAX_ATTEMPTS:-3}
+    local timeout=${RETRY_TIMEOUT_SECONDS:-5}
+    local attempt=1
+    local exit_code=0
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@"; then
+            return 0
+        else
+            exit_code=$?
+            if [ $attempt -lt $max_attempts ]; then
+                log_warning "Attempt $attempt/$max_attempts failed. Retrying in ${timeout}s..."
+                sleep $timeout
+                timeout=$((timeout * 2))  # Exponential backoff
+            else
+                log_error "All $max_attempts attempts failed"
+            fi
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    return $exit_code
+}
+
+# Retry docker pull with automatic retry
+docker_pull_retry() {
+    local image=$1
+    log_info "Pulling image: $image"
+    retry_command docker pull "$image"
+}
+
+# Retry docker push with automatic retry
+docker_push_retry() {
+    local image=$1
+    log_info "Pushing image: $image"
+    retry_command docker push "$image"
+}
+
 # Export functions for use in other scripts
 export -f log_info log_success log_warning log_error log_section
 export -f exit_on_error check_command
@@ -150,3 +196,4 @@ export -f verify_image verify_image_arch list_images
 export -f clean_version_tag verify_file verify_directory
 export -f get_current_arch show_build_env
 export -f start_timer end_timer
+export -f retry_command docker_pull_retry docker_push_retry

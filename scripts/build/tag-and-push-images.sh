@@ -32,21 +32,8 @@ log_info "GitHub Repo Owner: $GITHUB_REPO_OWNER"
 log_section "Built Images"
 docker images | grep ${DOCKER_USERNAME} || docker images | grep ${VERSION_TAG} || true
 
-# The actual image names produced by Harbor's build
-declare -A IMAGE_NAMES=(
-    ["prepare"]="prepare"
-    ["core"]="harbor-core"
-    ["db"]="harbor-db"
-    ["jobservice"]="harbor-jobservice"
-    ["log"]="harbor-log"
-    ["nginx"]="nginx-photon"
-    ["portal"]="harbor-portal"
-    ["redis"]="redis-photon"
-    ["registry"]="registry-photon"
-    ["registryctl"]="harbor-registryctl"
-    ["exporter"]="harbor-exporter"
-    ["trivy-adapter"]="trivy-adapter-photon"
-)
+# Use centralized image name configuration from config.sh
+# Note: IMAGE_NAMES is now defined in scripts/config.sh as HARBOR_IMAGE_NAMES
 
 # Debug: List all docker images to see what was actually built
 log_section "All Available Images"
@@ -59,8 +46,8 @@ FAILED_IMAGES=()
 # Push all built components
 log_section "Pushing Images to Registries"
 
-for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
-    IMAGE_NAME="${IMAGE_NAMES[$component]}"
+for component in "${HARBOR_COMPONENTS[@]}"; do
+    IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     SOURCE_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     log_info "Processing ${component}..."
@@ -70,26 +57,30 @@ for component in prepare core db jobservice log nginx portal redis registry regi
         log_success "Found ${component} image: ${SOURCE_IMAGE}"
 
         # Tag for Docker Hub with -arm64 suffix
-        docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
-        docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
+        DOCKERHUB_IMAGE_VERSIONED="${DOCKER_USERNAME}/harbor-${component}${IMAGE_SUFFIX}:${VERSION_TAG}"
+        DOCKERHUB_IMAGE_LATEST="${DOCKER_USERNAME}/harbor-${component}${IMAGE_SUFFIX}:latest"
+        docker tag ${SOURCE_IMAGE} ${DOCKERHUB_IMAGE_VERSIONED}
+        docker tag ${SOURCE_IMAGE} ${DOCKERHUB_IMAGE_LATEST}
 
         # Tag for GHCR
-        docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
-        docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
+        GHCR_IMAGE_VERSIONED="$(get_ghcr_image_reference ${GITHUB_REPO_OWNER} ${component} ${VERSION_TAG})"
+        GHCR_IMAGE_LATEST="${REGISTRY_GHCR}/${GITHUB_REPO_OWNER}/harbor-${component}${IMAGE_SUFFIX}:latest"
+        docker tag ${SOURCE_IMAGE} ${GHCR_IMAGE_VERSIONED}
+        docker tag ${SOURCE_IMAGE} ${GHCR_IMAGE_LATEST}
 
-        # Push to Docker Hub
+        # Push to Docker Hub with retry
         log_info "Pushing to Docker Hub..."
-        if docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG} && \
-           docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:latest; then
+        if docker_push_retry ${DOCKERHUB_IMAGE_VERSIONED} && \
+           docker_push_retry ${DOCKERHUB_IMAGE_LATEST}; then
             log_success "Pushed ${component} to Docker Hub"
         else
             log_warning "Failed to push ${component} to Docker Hub"
         fi
 
-        # Push to GHCR
+        # Push to GHCR with retry
         log_info "Pushing to GHCR..."
-        if docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG} && \
-           docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest; then
+        if docker_push_retry ${GHCR_IMAGE_VERSIONED} && \
+           docker_push_retry ${GHCR_IMAGE_LATEST}; then
             log_success "Pushed ${component} to GHCR"
         else
             log_warning "Failed to push ${component} to GHCR"

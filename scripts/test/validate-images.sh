@@ -29,8 +29,8 @@ log_info "Version Tag: $VERSION_TAG"
 log_info "Docker Username: $DOCKER_USERNAME"
 log_info "Full Test Mode: $([ "$FULL_TEST" = "--full" ] && echo "Yes" || echo "No")"
 
-# Component list
-COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
+# Use centralized component list from config.sh
+# COMPONENTS is now HARBOR_COMPONENTS, IMAGE_NAMES is now HARBOR_IMAGE_NAMES
 
 # Track validation results
 PASSED_TESTS=0
@@ -54,24 +54,10 @@ EOF
 # Test 1: Image Existence
 log_section "Test 1: Image Existence Check"
 
-declare -A IMAGE_NAMES=(
-    ["prepare"]="prepare"
-    ["core"]="harbor-core"
-    ["db"]="harbor-db"
-    ["jobservice"]="harbor-jobservice"
-    ["log"]="harbor-log"
-    ["nginx"]="nginx-photon"
-    ["portal"]="harbor-portal"
-    ["redis"]="redis-photon"
-    ["registry"]="registry-photon"
-    ["registryctl"]="harbor-registryctl"
-    ["exporter"]="harbor-exporter"
-)
-
 MISSING_IMAGES=()
 
-for component in "${COMPONENTS[@]}"; do
-    IMAGE_NAME="${IMAGE_NAMES[$component]}"
+for component in "${HARBOR_COMPONENTS[@]}"; do
+    IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if verify_image "$IMAGE"; then
@@ -85,7 +71,7 @@ for component in "${COMPONENTS[@]}"; do
 done
 
 echo "### Image Existence" >> "$VALIDATION_REPORT"
-echo "- **Passed**: $PASSED_TESTS/${#COMPONENTS[@]}" >> "$VALIDATION_REPORT"
+echo "- **Passed**: $PASSED_TESTS/${#HARBOR_COMPONENTS[@]}" >> "$VALIDATION_REPORT"
 if [ ${#MISSING_IMAGES[@]} -gt 0 ]; then
     echo "- **Missing**: ${MISSING_IMAGES[*]}" >> "$VALIDATION_REPORT"
 fi
@@ -96,8 +82,8 @@ log_section "Test 2: Architecture Verification"
 
 ARCH_FAILED=()
 
-for component in "${COMPONENTS[@]}"; do
-    IMAGE_NAME="${IMAGE_NAMES[$component]}"
+for component in "${HARBOR_COMPONENTS[@]}"; do
+    IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -113,7 +99,7 @@ for component in "${COMPONENTS[@]}"; do
 done
 
 echo "### Architecture Verification" >> "$VALIDATION_REPORT"
-echo "- **Passed**: $(( ${#COMPONENTS[@]} - ${#ARCH_FAILED[@]} ))/${#COMPONENTS[@]}" >> "$VALIDATION_REPORT"
+echo "- **Passed**: $(( ${#HARBOR_COMPONENTS[@]} - ${#ARCH_FAILED[@]} ))/${#HARBOR_COMPONENTS[@]}" >> "$VALIDATION_REPORT"
 if [ ${#ARCH_FAILED[@]} -gt 0 ]; then
     echo "- **Failed**: ${ARCH_FAILED[*]}" >> "$VALIDATION_REPORT"
 fi
@@ -129,8 +115,8 @@ echo "|-----------|------|" >> "$VALIDATION_REPORT"
 
 TOTAL_SIZE=0
 
-for component in "${COMPONENTS[@]}"; do
-    IMAGE_NAME="${IMAGE_NAMES[$component]}"
+for component in "${HARBOR_COMPONENTS[@]}"; do
+    IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -162,11 +148,9 @@ echo "" >> "$VALIDATION_REPORT"
 
 SMOKE_FAILED=()
 
-# Test components that can start standalone
-TESTABLE_COMPONENTS=(redis db)
-
+# Use centralized testable components from config.sh
 for component in "${TESTABLE_COMPONENTS[@]}"; do
-    IMAGE_NAME="${IMAGE_NAMES[$component]}"
+    IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -210,11 +194,9 @@ if [ "$FULL_TEST" = "--full" ]; then
         echo "### Security Scan Results" >> "$VALIDATION_REPORT"
         echo "" >> "$VALIDATION_REPORT"
 
-        # Scan core components only (to save time)
-        SCAN_COMPONENTS=(core portal registry)
-
+        # Use centralized scan components from config.sh
         for component in "${SCAN_COMPONENTS[@]}"; do
-            IMAGE_NAME="${IMAGE_NAMES[$component]}"
+            IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
             IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
             if docker image inspect "$IMAGE" >/dev/null 2>&1; then
