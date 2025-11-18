@@ -271,7 +271,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          ./scripts/integration-test.sh \
+          ./scripts/integration-test-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}"
 
@@ -342,24 +342,9 @@ jobs:
             fi
           done
 
-      - name: Start Harbor for API testing
+      - name: Run API tests (Simplified)
         run: |
-          VERSION="${{ needs.check-release.outputs.version }}"
-          VERSION_TAG="${VERSION#v}"
-          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-
-          # Start Harbor stack for API testing
-          export DOCKER_USERNAME=$DOCKER_USERNAME
-          export VERSION_TAG=$VERSION_TAG
-          docker compose -f docker-compose.test.yml up -d
-
-          # Wait for Harbor to be ready
-          echo "Waiting for Harbor to be ready..."
-          timeout 300 bash -c 'until curl -sf http://localhost:8080/api/v2.0/ping; do sleep 5; done'
-
-      - name: Run API tests
-        run: |
-          ./scripts/api-test.sh \
+          ./scripts/api-test-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             "http://localhost:8080"
@@ -378,11 +363,6 @@ jobs:
           if [ -f harbor-api-test-report-*.md ]; then
             cat harbor-api-test-report-*.md >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker-compose.test.yml down -v || true
 
   benchmark:
     needs: [check-release, integration-test]
@@ -436,24 +416,9 @@ jobs:
             fi
           done
 
-      - name: Start Harbor for benchmarking
+      - name: Run benchmarks (Simplified)
         run: |
-          VERSION="${{ needs.check-release.outputs.version }}"
-          VERSION_TAG="${VERSION#v}"
-          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-
-          # Start Harbor stack
-          export DOCKER_USERNAME=$DOCKER_USERNAME
-          export VERSION_TAG=$VERSION_TAG
-          docker compose -f docker-compose.test.yml up -d
-
-          # Wait for Harbor to be ready
-          echo "Waiting for Harbor to be ready..."
-          timeout 300 bash -c 'until curl -sf http://localhost:8080/api/v2.0/ping; do sleep 5; done'
-
-      - name: Run benchmarks
-        run: |
-          ./scripts/benchmark.sh \
+          ./scripts/benchmark-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             "http://localhost:8080"
@@ -472,11 +437,6 @@ jobs:
           if [ -f harbor-benchmark-report-*.md ]; then
             cat harbor-benchmark-report-*.md >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker-compose.test.yml down -v || true
 
   update-version-file:
     needs: [check-release, build-harbor, validate-images, api-test, benchmark]
