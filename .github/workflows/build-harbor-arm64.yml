@@ -91,32 +91,32 @@ jobs:
       - name: Build base images for ARM64
         working-directory: harbor
         run: |
-          ../scripts/build-base-images.sh \
+          ../scripts/build/build-base-images.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}"
 
       - name: Build registry binary for ARM64
         working-directory: harbor
         run: |
-          ../scripts/build-registry-binary.sh
+          ../scripts/build/build-registry-binary.sh
 
       - name: Patch Harbor build files
         working-directory: harbor
         run: |
-          ../scripts/patch-harbor-build.sh \
+          ../scripts/build/patch-harbor-build.sh \
             "${{ needs.check-release.outputs.version }}"
 
       - name: Build Harbor components for ARM64
         working-directory: harbor
         run: |
-          ../scripts/build-harbor-components.sh \
+          ../scripts/build/build-harbor-components.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}"
 
       - name: Tag and push ARM64 images
         working-directory: harbor
         run: |
-          ../scripts/tag-and-push-images.sh \
+          ../scripts/build/tag-and-push-images.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             "${{ github.repository_owner }}"
@@ -195,7 +195,7 @@ jobs:
           done
 
           # Run validation script
-          ./scripts/validate-images.sh \
+          ./scripts/test/validate-images.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             --full
@@ -271,7 +271,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          ./scripts/integration-test-simple.sh \
+          ./scripts/test/integration-test-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}"
 
@@ -344,7 +344,7 @@ jobs:
 
       - name: Run API tests (Simplified)
         run: |
-          ./scripts/api-test-simple.sh \
+          ./scripts/test/api-test-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             "http://localhost:8080"
@@ -418,7 +418,7 @@ jobs:
 
       - name: Run benchmarks (Simplified)
         run: |
-          ./scripts/benchmark-simple.sh \
+          ./scripts/test/benchmark-simple.sh \
             "${{ needs.check-release.outputs.version }}" \
             "${{ secrets.DOCKERHUB_USERNAME }}" \
             "http://localhost:8080"

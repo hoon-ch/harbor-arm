@@ -102,7 +102,7 @@ docker run -d \
 
 ### 🎼 Docker Compose
 
-Complete Harbor deployment with Docker Compose:
+Complete Harbor deployment with Docker Compose. See full example in [`examples/docker-compose/harbor-arm64.yml`](examples/docker-compose/harbor-arm64.yml).
 
 ```yaml
 # docker-compose.yml
@@ -255,7 +255,7 @@ helm repo add harbor https://helm.goharbor.io
 helm repo update
 ```
 
-2. **Create custom values for ARM64:**
+2. **Create custom values for ARM64** (see full example in [`examples/helm/values-arm64.yaml`](examples/helm/values-arm64.yaml)):
 
 ```yaml
 # values-arm64.yaml
@@ -365,7 +365,7 @@ kubectl get secret harbor-core -n harbor -o jsonpath="{.data.HARBOR_ADMIN_PASSWO
 
 #### Manual Kubernetes Deployment
 
-For a simple deployment without Helm:
+For a simple deployment without Helm (see full example in [`examples/kubernetes/deployment.yaml`](examples/kubernetes/deployment.yaml)):
 
 ```yaml
 # harbor-arm64-k8s.yaml
@@ -526,10 +526,32 @@ The workflow can be triggered in two ways:
 harbor-arm/
 ├── .github/
 │   └── workflows/
-│       └── check-and-build.yml    # Main CI/CD workflow
+│       └── build-harbor-arm64.yml  # Main CI/CD workflow
+├── docs/
+│   ├── CONTRIBUTING.md             # Contribution guidelines
+│   └── architecture.md             # Architecture documentation
+├── examples/
+│   ├── docker-compose/
+│   │   └── harbor-arm64.yml       # Docker Compose example
+│   ├── kubernetes/
+│   │   └── deployment.yaml        # Kubernetes example
+│   └── helm/
+│       └── values-arm64.yaml      # Helm values example
 ├── scripts/
-│   ├── build-local.sh             # Local build script
-│   └── push-images.sh             # Registry push script
+│   ├── build/                     # Build-related scripts
+│   │   ├── build-base-images.sh
+│   │   ├── build-harbor-components.sh
+│   │   ├── build-registry-binary.sh
+│   │   ├── patch-harbor-build.sh
+│   │   └── tag-and-push-images.sh
+│   ├── test/                      # Test-related scripts
+│   │   ├── api-test-simple.sh
+│   │   ├── benchmark-simple.sh
+│   │   ├── integration-test-simple.sh
+│   │   └── validate-images.sh
+│   ├── common.sh                  # Common utility functions
+│   ├── build-local.sh             # User script for local builds
+│   └── push-images.sh             # User script for pushing images
 ├── built_versions.txt             # Tracks built versions
 └── README.md                      # This file
 ```
@@ -638,6 +660,13 @@ docker buildx inspect --bootstrap
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
+
+For detailed information about contributing, please see our [Contributing Guidelines](docs/CONTRIBUTING.md).
+
+### Documentation
+
+- [Architecture Documentation](docs/architecture.md) - Understand how the build system works
+- [Contributing Guidelines](docs/CONTRIBUTING.md) - How to contribute to this project
 
 ## License
 
