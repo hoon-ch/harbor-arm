@@ -6,7 +6,7 @@ version: '3.8'
 
 services:
   log:
-    image: ${DOCKER_USERNAME}/harbor-log-arm64:${VERSION_TAG}
+    image: ${DOCKER_USERNAME}/harbor-log:${VERSION_TAG}
     container_name: harbor-log-test
     restart: on-failure:3
     cap_drop:
@@ -28,7 +28,7 @@ services:
       start_period: 10s
 
   redis:
-    image: ${DOCKER_USERNAME}/harbor-redis-arm64:${VERSION_TAG}
+    image: ${DOCKER_USERNAME}/redis-photon:${VERSION_TAG}
     container_name: redis-test
     restart: on-failure:3
     cap_drop:
@@ -52,7 +52,7 @@ services:
       start_period: 5s
 
   postgresql:
-    image: ${DOCKER_USERNAME}/harbor-db-arm64:${VERSION_TAG}
+    image: ${DOCKER_USERNAME}/harbor-db:${VERSION_TAG}
     container_name: harbor-db-test
     restart: on-failure:3
     cap_drop:
