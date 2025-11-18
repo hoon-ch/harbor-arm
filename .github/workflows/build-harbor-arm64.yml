@@ -86,316 +86,86 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build base images for ARM64
+        working-directory: harbor
         run: |
-          cd harbor
+          ../scripts/build-base-images.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}"
 
-          VERSION="${{ needs.check-release.outputs.version }}"
-          VERSION_TAG="${VERSION#v}"
-          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-
-          echo "Building base images for ARM64..."
-          echo "Architecture: $(uname -m)"
-
-          # Check if prepare base Dockerfile exists
-          if [ ! -f "make/photon/prepare/Dockerfile.base" ]; then
-            echo "ERROR: make/photon/prepare/Dockerfile.base not found!"
-            echo "Trying to find base Dockerfiles..."
-            find . -name "*.base" -o -name "Dockerfile.base" | head -20
-            exit 1
-          fi
-
-          # First, check what the base Dockerfile is based on
-          echo "Checking base image dependencies in Dockerfile.base..."
-          grep "^FROM" make/photon/prepare/Dockerfile.base || true
-
-          # Build harbor-prepare-base for ARM64 - this is the critical one
-          echo "Building harbor-prepare-base:${VERSION} for ARM64..."
-
-          # Use regular docker build (not buildx) since we're on native ARM64
-          # This prevents buildx from pulling remote AMD64 images
-          docker build \
-            -t goharbor/harbor-prepare-base:${VERSION} \
-            -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
-            -f make/photon/prepare/Dockerfile.base \
-            make/photon/prepare/
-
-          # Verify the image was built
-          if ! docker image inspect goharbor/harbor-prepare-base:${VERSION} >/dev/null 2>&1; then
-            echo "ERROR: Failed to build harbor-prepare-base:${VERSION}"
-            exit 1
-          fi
-          echo "✅ Successfully built harbor-prepare-base:${VERSION}"
-
-          # Also tag with the exact version tag format Harbor expects
-          docker tag goharbor/harbor-prepare-base:${VERSION} goharbor/prepare:${VERSION_TAG}
-          docker tag goharbor/harbor-prepare-base:${VERSION} ${DOCKER_USERNAME}/prepare:${VERSION_TAG}
-
-          # Build other base images if they exist
-          for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); do
-            if [ -f "$base_dockerfile" ] && [ "$base_dockerfile" != "make/photon/prepare/Dockerfile.base" ]; then
-              component_dir=$(dirname $base_dockerfile)
-              component_name=$(basename $component_dir)
-              echo "Building base image for ${component_name}..."
-              docker build \
-                -t goharbor/harbor-${component_name}-base:${VERSION} \
-                -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
-                -f $base_dockerfile \
-                $component_dir/ || echo "Warning: Failed to build base image for ${component_name}"
-            fi
-          done
-
-          # List all images to verify
-          echo "========== All Docker images =========="
-          docker images --format "table {{.Repository}}:{{.Tag}}" | sort
-          echo "======================================="
-
-      - name: Build Harbor for ARM64
+      - name: Build registry binary for ARM64
+        working-directory: harbor
         run: |
-          cd harbor
+          ../scripts/build-registry-binary.sh
 
-          VERSION="${{ needs.check-release.outputs.version }}"
-          VERSION_TAG="${VERSION#v}"
-          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-          GITHUB_REPO_OWNER="${{ github.repository_owner }}"
+      - name: Patch Harbor build files
+        working-directory: harbor
+        run: |
+          ../scripts/patch-harbor-build.sh \
+            "${{ needs.check-release.outputs.version }}"
 
-          # Skip API linting to avoid Spectral build issues
-          sed -i 's/compile: check_environment lint_apis compile_core compile_jobservice/compile: check_environment compile_core compile_jobservice/' Makefile
-
-          # Build registry binary for ARM64
-          echo "========== Building registry binary for ARM64 =========="
-          mkdir -p make/photon/registry/binary
-          mkdir -p make/photon/registryctl/binary
-
-          # Build registry from source for ARM64
-          CURRENT_DIR=$(pwd)
-
-          echo "Cloning and building registry from main branch for ARM64..."
-          git clone --depth 1 https://github.com/distribution/distribution.git /tmp/distribution
-          cd /tmp/distribution
-
-          # Verify go.mod exists and download dependencies
-          if [ ! -f "go.mod" ]; then
-            echo "ERROR: go.mod not found in distribution repository"
-            exit 1
-          fi
-
-          echo "go.mod found, downloading dependencies..."
-          go mod vendor
-
-          # Build registry binary
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o /tmp/registry-bin ./cmd/registry
-          chmod +x /tmp/registry-bin
-
-          # Verify binary architecture
-          file /tmp/registry-bin
-
-          # Copy to Harbor build directories
-          cp /tmp/registry-bin ${CURRENT_DIR}/make/photon/registry/binary/registry
-          cp /tmp/registry-bin ${CURRENT_DIR}/make/photon/registryctl/binary/registry
-          cd ${CURRENT_DIR}
-
-          echo "Registry binary built and copied"
-          ls -lh make/photon/registry/binary/
-          file make/photon/registry/binary/registry
-
-          # CRITICAL FIX: Patch Harbor Makefile to prevent pulling remote images
-          echo "========== Patching Harbor Makefile to disable image pulling =========="
-
-          # Harbor uses DOCKERBUILD variable - patch it to include --pull=false
-          # Note: buildx uses boolean values (true/false), not "never"
-          sed -i 's/DOCKERBUILD\s*?=\s*docker/DOCKERBUILD ?= docker/g' make/photon/Makefile
-          sed -i '/DOCKERBUILD.*:=/s/$/ --pull=false/' make/photon/Makefile
-          sed -i '/DOCKERBUILD.*?=/s/$/ --pull=false/' make/photon/Makefile
-
-          # Also patch any direct docker/buildx build commands
-          find make/photon -name "Makefile" -exec sed -i 's/docker buildx build /docker buildx build --pull=false /g' {} \;
-          find make/photon -name "Makefile" -exec sed -i 's/docker build /docker build --pull=false /g' {} \;
-
-          # Show what we patched
-          echo "Checking DOCKERBUILD variable:"
-          grep "DOCKERBUILD" make/photon/Makefile || echo "DOCKERBUILD not found"
-
-          echo "========== Patching Dockerfiles to use local ARM64 base images =========="
-
-          # Directly replace FROM lines with ARG variables to hardcoded values
-          for dockerfile in $(find make/photon -name "Dockerfile" -type f); do
-            echo "Patching $dockerfile..."
-            # Replace FROM lines that use variables
-            sed -i "s|FROM \${harbor_base_namespace}/harbor-prepare-base:\${harbor_base_image_version}|FROM goharbor/harbor-prepare-base:${VERSION}|g" $dockerfile
-            # Also handle non-variable format
-            sed -i "s|FROM goharbor/harbor-prepare-base:.*|FROM goharbor/harbor-prepare-base:${VERSION}|g" $dockerfile
-            # Show what we have now
-            grep "FROM.*prepare-base" $dockerfile || true
-          done
-
-          echo "========================================================="
-
-          # List all our local ARM64 images
-          echo "========== Available local Docker images =========="
-          docker images | grep -E "(goharbor|${DOCKER_USERNAME})" | head -20
-          echo "===================================================="
-
-          # We're on native ARM64 - build normally!
-          echo "Building on native ARM64 runner..."
-          echo "Architecture: $(uname -m)"
-
-          # NUCLEAR OPTION: Skip Harbor's build system and build manually
-          echo "========== Building Harbor components manually =========="
-
-          # First, compile the Go binaries (including exporter)
-          echo "Compiling Go binaries..."
-          make compile \
-            GOBUILDIMAGE=golang:1.24 \
-            COMPILETAG=compile_golangimage \
-            BUILDBIN=true \
-            NOTARYFLAG=false \
-            TRIVYFLAG=true \
-            GOBUILDTAGS="include_oss include_gcs"
-
-          # Compile exporter manually (make target doesn't exist in v2.14.0)
-          echo "========== Compiling exporter binary for ARM64 =========="
-          mkdir -p make/photon/exporter
-
-          echo "Building exporter from source..."
-          cd src/cmd/exporter
-
-          # Build exporter binary for ARM64
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o ../../../make/photon/exporter/harbor_exporter .
-
-          cd ../../..
-
-          # Set permissions and verify
-          chmod +x make/photon/exporter/harbor_exporter
-
-          echo "✅ Exporter binary created:"
-          file make/photon/exporter/harbor_exporter
-          ls -lh make/photon/exporter/harbor_exporter
-
-          # Now build each Docker image manually using regular docker build
-          # We're on native ARM64 so we don't need buildx!
-          echo "Building Docker images manually..."
-
-          # Build prepare image using our local ARM64 base
-          # Use harbor root as context, specify Dockerfile with -f
-          docker build \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${VERSION} \
-            -t ${DOCKER_USERNAME}/prepare:${VERSION_TAG} \
-            -f make/photon/prepare/Dockerfile \
-            .
-
-          # Build other core images - need to pass build args!
-          # (registryctl excluded - needs registry binary)
-          for component in core jobservice; do
-            echo "Building $component..."
-            docker build \
-              --build-arg harbor_base_namespace=goharbor \
-              --build-arg harbor_base_image_version=${VERSION} \
-              -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
-              -f make/photon/$component/Dockerfile \
-              . || echo "Warning: Failed to build $component"
-          done
-
-          # Build portal with NODE argument
-          echo "Building portal..."
-          docker build \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${VERSION} \
-            --build-arg NODE=node:16.18.0 \
-            -t ${DOCKER_USERNAME}/harbor-portal:${VERSION_TAG} \
-            -f make/photon/portal/Dockerfile \
-            . || echo "Warning: Failed to build portal"
-
-          # Build nginx, log, db, redis (registry/registryctl/trivy-adapter need binaries)
-          for component in nginx log db redis; do
-            echo "Building $component..."
-            if [ -d "make/photon/$component" ]; then
-              # Determine output image name
-              case $component in
-                nginx) image_name="nginx-photon" ;;
-                redis) image_name="redis-photon" ;;
-                *) image_name="harbor-$component" ;;
-              esac
-
-              docker build \
-                --build-arg harbor_base_namespace=goharbor \
-                --build-arg harbor_base_image_version=${VERSION} \
-                -t ${DOCKER_USERNAME}/$image_name:${VERSION_TAG} \
-                -f make/photon/$component/Dockerfile \
-                . || echo "Warning: Failed to build $component"
-            fi
-          done
-
-          # Build registry and registryctl (now that we have the registry binary)
-          echo "Building registry..."
-          docker build \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${VERSION} \
-            -t ${DOCKER_USERNAME}/registry-photon:${VERSION_TAG} \
-            -f make/photon/registry/Dockerfile \
-            . || echo "Warning: Failed to build registry"
-
-          echo "Building registryctl..."
-          docker build \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${VERSION} \
-            -t ${DOCKER_USERNAME}/harbor-registryctl:${VERSION_TAG} \
-            -f make/photon/registryctl/Dockerfile \
-            . || echo "Warning: Failed to build registryctl"
-
-          # Build exporter using our pre-built ARM64 binary
-          echo "Building exporter..."
-          # Create a simple Dockerfile that uses our pre-built binary
-          {
-            echo "ARG harbor_base_namespace"
-            echo "ARG harbor_base_image_version"
-            echo "FROM \${harbor_base_namespace}/harbor-exporter-base:\${harbor_base_image_version}"
-            echo ""
-            echo "COPY make/photon/exporter/harbor_exporter /harbor/harbor_exporter"
-            echo "COPY ./make/photon/exporter/entrypoint.sh ./make/photon/common/install_cert.sh /harbor/"
-            echo ""
-            echo "RUN chown -R harbor:harbor /etc/pki/tls/certs \\"
-            echo "    && chown harbor:harbor /harbor/harbor_exporter && chmod u+x /harbor/harbor_exporter \\"
-            echo "    && chown harbor:harbor /harbor/entrypoint.sh && chmod u+x /harbor/entrypoint.sh \\"
-            echo "    && chown harbor:harbor /harbor/install_cert.sh && chmod u+x /harbor/install_cert.sh"
-            echo ""
-            echo "WORKDIR /harbor"
-            echo "USER harbor"
-            echo ""
-            echo "ENTRYPOINT [\"/harbor/entrypoint.sh\"]"
-          } > /tmp/Dockerfile.exporter
-
-          if docker build \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${VERSION} \
-            -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
-            -f /tmp/Dockerfile.exporter \
-            .; then
-            echo "✅ Exporter image built successfully"
-          else
-            echo "❌ Warning: Failed to build exporter image"
-            echo "Checking binary location..."
-            ls -la make/photon/exporter/ || true
-          fi
-
-          # Note: trivy-adapter requires scanner-trivy binary (not built yet)
-
-          echo "========== Listing built images =========="
-          docker images | grep ${DOCKER_USERNAME}
+      - name: Build Harbor components for ARM64
+        working-directory: harbor
+        run: |
+          ../scripts/build-harbor-components.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}"
 
       - name: Tag and push ARM64 images
+        working-directory: harbor
+        run: |
+          ../scripts/tag-and-push-images.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}" \
+            "${{ github.repository_owner }}"
+
+  validate-images:
+    needs: [check-release, build-harbor]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04-arm  # Use native ARM64 runner for testing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull built images
         run: |
           VERSION="${{ needs.check-release.outputs.version }}"
           VERSION_TAG="${VERSION#v}"
           DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
-          GITHUB_REPO_OWNER="${{ github.repository_owner }}"
 
-          # List built images to understand naming
-          echo "Built images:"
-          docker images | grep ${DOCKER_USERNAME} || docker images | grep ${VERSION_TAG} || true
+          # Pull all built images for validation
+          COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
 
-          # The actual image names produced by Harbor's Makefile
-          # Format: ${IMAGENAMESPACE}/image-name:${VERSION_TAG}
+          for component in "${COMPONENTS[@]}"; do
+            IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            echo "Pulling ${IMAGE}..."
+            docker pull ${IMAGE} || echo "Warning: Failed to pull ${component}"
+          done
+
+      - name: Install Trivy for security scanning
+        run: |
+          # Install Trivy
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run validation tests
+        run: |
+          # Retag images to expected format for validation script
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
           declare -A IMAGE_NAMES=(
             ["prepare"]="prepare"
             ["core"]="harbor-core"
@@ -408,49 +178,189 @@ jobs:
             ["registry"]="registry-photon"
             ["registryctl"]="harbor-registryctl"
             ["exporter"]="harbor-exporter"
-            ["trivy-adapter"]="trivy-adapter-photon"
           )
 
-          # Debug: List all docker images to see what was actually built
-          echo "All available images:"
-          docker images --format "table {{.Repository}}:{{.Tag}}" | sort
-
-          # Push all built components (including registry, registryctl, exporter)
+          # Retag images from -arm64 suffix to standard names for validation
           for component in prepare core db jobservice log nginx portal redis registry registryctl exporter; do
-            IMAGE_NAME="${IMAGE_NAMES[$component]}"
-            SOURCE_IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
+            SOURCE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
+            TARGET="${DOCKER_USERNAME}/${IMAGE_NAMES[$component]}:${VERSION_TAG}"
 
-            echo "Looking for image: ${SOURCE_IMAGE}"
-
-            # Check if image exists
-            if docker image inspect ${SOURCE_IMAGE} >/dev/null 2>&1; then
-              echo "✅ Found ${component} image: ${SOURCE_IMAGE}"
-
-              # Tag for Docker Hub with -arm64 suffix
-              docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
-              docker tag ${SOURCE_IMAGE} ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
-
-              # Tag for GHCR
-              docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
-              docker tag ${SOURCE_IMAGE} ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
-
-              # Push to Docker Hub
-              docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}
-              docker push ${DOCKER_USERNAME}/harbor-${component}-arm64:latest
-
-              # Push to GHCR
-              docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:${VERSION_TAG}
-              docker push ghcr.io/${GITHUB_REPO_OWNER}/harbor-${component}-arm64:latest
-
-              echo "✅ Built and pushed ${component}" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Image not found: ${SOURCE_IMAGE}"
-              echo "⚠️ Image not found: ${SOURCE_IMAGE}" >> $GITHUB_STEP_SUMMARY
+            if docker image inspect ${SOURCE} >/dev/null 2>&1; then
+              docker tag ${SOURCE} ${TARGET}
+              echo "Tagged ${SOURCE} as ${TARGET}"
             fi
           done
 
+          # Run validation script
+          ./scripts/validate-images.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}" \
+            --full
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: harbor-validation-report-*.md
+          retention-days: 30
+
+      - name: Add validation results to summary
+        if: always()
+        run: |
+          if [ -f harbor-validation-report-*.md ]; then
+            cat harbor-validation-report-*.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+  integration-test:
+    needs: [check-release, build-harbor, validate-images]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Run integration tests
+        run: |
+          ./scripts/integration-test.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}"
+
+      - name: Upload integration test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: harbor-integration-test-report-*.md
+          retention-days: 30
+
+      - name: Add integration results to summary
+        if: always()
+        run: |
+          if [ -f harbor-integration-test-report-*.md ]; then
+            cat harbor-integration-test-report-*.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+  api-test:
+    needs: [check-release, integration-test]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Start Harbor for API testing
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          # Start Harbor stack for API testing
+          export DOCKER_USERNAME=$DOCKER_USERNAME
+          export VERSION_TAG=$VERSION_TAG
+          docker compose -f docker-compose.test.yml up -d
+
+          # Wait for Harbor to be ready
+          echo "Waiting for Harbor to be ready..."
+          timeout 300 bash -c 'until curl -sf http://localhost:8080/api/v2.0/ping; do sleep 5; done'
+
+      - name: Run API tests
+        run: |
+          ./scripts/api-test.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}" \
+            "http://localhost:8080"
+
+      - name: Upload API test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-report
+          path: harbor-api-test-report-*.md
+          retention-days: 30
+
+      - name: Add API test results to summary
+        if: always()
+        run: |
+          if [ -f harbor-api-test-report-*.md ]; then
+            cat harbor-api-test-report-*.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down -v || true
+
+  benchmark:
+    needs: [check-release, integration-test]
+    if: needs.check-release.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Start Harbor for benchmarking
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          VERSION_TAG="${VERSION#v}"
+          DOCKER_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          # Start Harbor stack
+          export DOCKER_USERNAME=$DOCKER_USERNAME
+          export VERSION_TAG=$VERSION_TAG
+          docker compose -f docker-compose.test.yml up -d
+
+          # Wait for Harbor to be ready
+          echo "Waiting for Harbor to be ready..."
+          timeout 300 bash -c 'until curl -sf http://localhost:8080/api/v2.0/ping; do sleep 5; done'
+
+      - name: Run benchmarks
+        run: |
+          ./scripts/benchmark.sh \
+            "${{ needs.check-release.outputs.version }}" \
+            "${{ secrets.DOCKERHUB_USERNAME }}" \
+            "http://localhost:8080"
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: harbor-benchmark-report-*.md
+          retention-days: 30
+
+      - name: Add benchmark results to summary
+        if: always()
+        run: |
+          if [ -f harbor-benchmark-report-*.md ]; then
+            cat harbor-benchmark-report-*.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down -v || true
+
   update-version-file:
-    needs: [check-release, build-harbor]
+    needs: [check-release, build-harbor, validate-images, api-test, benchmark]
     if: needs.check-release.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
