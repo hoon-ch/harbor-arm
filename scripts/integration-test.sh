@@ -113,11 +113,27 @@ export VERSION_TAG=$VERSION_TAG
 
 # Start the stack
 log_info "Starting Harbor stack with docker compose..."
-docker compose -f "$COMPOSE_FILE" up -d
-
-if [ $? -ne 0 ]; then
+if ! docker compose -f "$COMPOSE_FILE" up -d 2>&1; then
     log_error "Failed to start Harbor stack"
     echo "## ❌ FAILED: Unable to start stack" >> "$REPORT_FILE"
+
+    # Capture logs from all containers for debugging
+    log_warning "Capturing container logs for debugging..."
+
+    # List all containers (including stopped ones)
+    docker compose -f "$COMPOSE_FILE" ps -a
+
+    # Capture logs from specific problematic containers
+    for container in redis postgresql registry; do
+        log_info "Logs for $container:"
+        docker compose -f "$COMPOSE_FILE" logs --tail=50 "$container" 2>&1 || true
+        echo "---"
+    done
+
+    # Show container inspect for failed containers
+    log_info "Container details for redis-test:"
+    docker inspect redis-test 2>&1 | jq '.[] | {State: .State, Config: {Env: .Config.Env, Cmd: .Config.Cmd}}' || true
+
     exit 1
 fi
 

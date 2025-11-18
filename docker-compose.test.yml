@@ -37,19 +37,18 @@ services:
       - CHOWN
       - SETGID
       - SETUID
-    tmpfs:
-      - /var/lib/redis
+    volumes:
+      - redis_data:/var/lib/redis
     networks:
       - harbor-test
     depends_on:
-      log:
-        condition: service_healthy
+      - log
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      timeout: 2s
-      retries: 5
-      start_period: 5s
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   postgresql:
     image: ${DOCKER_USERNAME}/harbor-db:${VERSION_TAG}
@@ -65,20 +64,18 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root123
-      POSTGRES_DB: registry
-    tmpfs:
-      - /var/lib/postgresql/data
+    volumes:
+      - db_data:/var/lib/postgresql/data
     networks:
       - harbor-test
     depends_on:
-      log:
-        condition: service_healthy
+      - log
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD-SHELL", "pg_isready -U postgres || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 10
-      start_period: 20s
+      start_period: 30s
     shm_size: '256mb'
 
   registry:
@@ -91,22 +88,18 @@ services:
       - CHOWN
       - SETGID
       - SETUID
-    tmpfs:
-      - /storage
-    environment:
-      REGISTRY_HTTP_ADDR: 0.0.0.0:5000
-      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /storage
+    volumes:
+      - registry_data:/storage
     networks:
       - harbor-test
     depends_on:
-      log:
-        condition: service_healthy
+      - log
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:5000/v2/ || exit 1"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 10
-      start_period: 15s
+      start_period: 30s
 
   registryctl:
     image: ${DOCKER_USERNAME}/harbor-registryctl:${VERSION_TAG}
@@ -118,22 +111,21 @@ services:
       - CHOWN
       - SETGID
       - SETUID
-    tmpfs:
-      - /storage
+    volumes:
+      - registry_data:/storage
     environment:
       CORE_SECRET: test_secret
       JOBSERVICE_SECRET: test_secret
     networks:
       - harbor-test
     depends_on:
-      registry:
-        condition: service_healthy
+      - registry
     healthcheck:
       test: ["CMD-SHELL", "netstat -ln | grep 8080 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   core:
     image: ${DOCKER_USERNAME}/harbor-core:${VERSION_TAG}
@@ -178,14 +170,10 @@ services:
     networks:
       - harbor-test
     depends_on:
-      log:
-        condition: service_healthy
-      registry:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgresql:
-        condition: service_healthy
+      - log
+      - registry
+      - redis
+      - postgresql
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/v2.0/ping || exit 1"]
       interval: 10s
@@ -207,8 +195,7 @@ services:
     networks:
       - harbor-test
     depends_on:
-      log:
-        condition: service_healthy
+      - log
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || exit 1"]
       interval: 5s
@@ -237,8 +224,7 @@ services:
     networks:
       - harbor-test
     depends_on:
-      core:
-        condition: service_healthy
+      - core
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/v1/stats || exit 1"]
       interval: 10s
@@ -265,8 +251,7 @@ services:
     depends_on:
       registry:
         condition: service_healthy
-      core:
-        condition: service_healthy
+      - core
       portal:
         condition: service_healthy
       log:
@@ -301,10 +286,8 @@ services:
       SCANNER_STORE_REDIS_URL: "redis://redis:6379/5"
       SCANNER_JOB_QUEUE_REDIS_URL: "redis://redis:6379/5"
     depends_on:
-      redis:
-        condition: service_healthy
-      log:
-        condition: service_healthy
+      - redis
+      - log
     healthcheck:
       test: ["CMD-SHELL", "netstat -ln | grep 8080 || exit 1"]
       interval: 10s
@@ -316,3 +299,8 @@ networks:
   harbor-test:
     name: harbor-test
     driver: bridge
+
+volumes:
+  redis_data:
+  db_data:
+  registry_data:
