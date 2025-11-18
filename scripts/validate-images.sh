@@ -73,11 +73,12 @@ for component in "${COMPONENTS[@]}"; do
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if verify_image "$IMAGE"; then
-        ((PASSED_TESTS++))
+        PASSED_TESTS=$((PASSED_TESTS + 1))
     else
         MISSING_IMAGES+=("$component")
-        ((FAILED_TESTS++))
+        FAILED_TESTS=$((FAILED_TESTS + 1))
     fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 done
 
 echo "### Image Existence" >> "$VALIDATION_REPORT"
@@ -98,12 +99,13 @@ for component in "${COMPONENTS[@]}"; do
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
         if verify_image_arch "$IMAGE" "arm64"; then
-            ((PASSED_TESTS++))
+            PASSED_TESTS=$((PASSED_TESTS + 1))
         else
             ARCH_FAILED+=("$component")
-            ((FAILED_TESTS++))
+            FAILED_TESTS=$((FAILED_TESTS + 1))
         fi
     fi
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 done
 
 echo "### Architecture Verification" >> "$VALIDATION_REPORT"
@@ -133,7 +135,8 @@ for component in "${COMPONENTS[@]}"; do
         TOTAL_SIZE=$((TOTAL_SIZE + SIZE))
         log_info "$component: ${SIZE_MB}MB"
         echo "| $component | ${SIZE_MB}MB |" >> "$VALIDATION_REPORT"
-        ((PASSED_TESTS++))
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
     fi
 done
 
@@ -171,19 +174,20 @@ for component in "${TESTABLE_COMPONENTS[@]}"; do
                 log_success "$component started successfully"
                 docker stop "$CONTAINER_ID" >/dev/null 2>&1
                 echo "- ✅ $component: Started successfully" >> "$VALIDATION_REPORT"
-                ((PASSED_TESTS++))
+                PASSED_TESTS=$((PASSED_TESTS + 1))
             else
                 log_error "$component exited unexpectedly"
                 SMOKE_FAILED+=("$component")
                 echo "- ❌ $component: Exited unexpectedly" >> "$VALIDATION_REPORT"
-                ((FAILED_TESTS++))
+                FAILED_TESTS=$((FAILED_TESTS + 1))
             fi
         else
             log_error "$component failed to start"
             SMOKE_FAILED+=("$component")
             echo "- ❌ $component: Failed to start" >> "$VALIDATION_REPORT"
-            ((FAILED_TESTS++))
+            FAILED_TESTS=$((FAILED_TESTS + 1))
         fi
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
     fi
 done
 
@@ -219,8 +223,9 @@ if [ "$FULL_TEST" = "--full" ]; then
                 else
                     log_success "$component: No HIGH/CRITICAL vulnerabilities"
                     echo "- ✅ $component: No HIGH/CRITICAL vulnerabilities" >> "$VALIDATION_REPORT"
-                    ((PASSED_TESTS++))
+                    PASSED_TESTS=$((PASSED_TESTS + 1))
                 fi
+                TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
                 rm -f "$SCAN_OUTPUT"
             fi
