@@ -6,7 +6,7 @@ set -e
 # Usage: ./api-test-simple.sh <version> <docker_username> [base_url]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+source "${SCRIPT_DIR}/../common.sh"
 
 # Check arguments
 if [ $# -lt 2 ]; then

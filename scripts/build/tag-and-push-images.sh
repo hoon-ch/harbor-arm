@@ -6,7 +6,7 @@ set -e
 # Usage: ./tag-and-push-images.sh <version> <docker_username> <github_repo_owner>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+source "${SCRIPT_DIR}/../common.sh"
 
 # Check arguments
 if [ $# -lt 3 ]; then

@@ -6,7 +6,7 @@ set -e
 # Usage: ./patch-harbor-build.sh <version>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+source "${SCRIPT_DIR}/../common.sh"
 
 # Check arguments
 if [ $# -lt 1 ]; then
