@@ -113,7 +113,7 @@ jobs:
       # No QEMU needed - we're running on native ARM64!
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Cache Docker layers for faster builds
       - name: Cache Docker layers
