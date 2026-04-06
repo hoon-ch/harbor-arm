@@ -27,13 +27,17 @@ log_info "Version Tag: $VERSION_TAG"
 log_info "Docker Username: $DOCKER_USERNAME"
 show_build_env
 
+REQUIRED_GO_VERSION=$(get_harbor_go_version ".") || exit_on_error "Failed to detect Harbor Go version from src/go.mod"
+ensure_installed_go_matches_harbor_requirement "." || exit_on_error "Installed Go toolchain does not meet Harbor requirements"
+log_info "Using Harbor-required Go build image: golang:${REQUIRED_GO_VERSION}"
+
 # List all our local ARM64 base images
 list_images "goharbor|${DOCKER_USERNAME}"
 
 # Compile the Go binaries (including core, jobservice)
 log_section "Compiling Go Binaries"
 make compile \
-    GOBUILDIMAGE=golang:${BUILD_CONFIG_GO_VERSION} \
+    GOBUILDIMAGE=golang:${REQUIRED_GO_VERSION} \
     COMPILETAG=compile_golangimage \
     BUILDBIN=true \
     NOTARYFLAG=${BUILD_FLAG_NOTARY} \

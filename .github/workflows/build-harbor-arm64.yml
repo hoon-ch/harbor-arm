@@ -65,12 +65,39 @@ jobs:
           ref: ${{ needs.check-release.outputs.version }}
           path: harbor
 
+      - name: Detect Harbor Go version
+        id: detect-go-version
+        working-directory: harbor
+        run: |
+          GO_VERSION=$(sed -nE 's/^go[[:space:]]+([0-9]+(\.[0-9]+){1,2}).*/\1/p' src/go.mod | head -n 1)
+
+          if [ -z "${GO_VERSION}" ]; then
+            echo "::error::Unable to detect required Go version from harbor/src/go.mod"
+            exit 1
+          fi
+
+          echo "Detected Harbor Go version: ${GO_VERSION}"
+          echo "go_version=${GO_VERSION}" >> "${GITHUB_OUTPUT}"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: ${{ steps.detect-go-version.outputs.go_version }}
           cache: true
-          cache-dependency-path: harbor/go.sum
+          cache-dependency-path: harbor/src/go.sum
+
+      - name: Verify installed Go version
+        run: |
+          REQUIRED_GO_VERSION="${{ steps.detect-go-version.outputs.go_version }}"
+          INSTALLED_GO_VERSION=$(go env GOVERSION | sed 's/^go//')
+
+          echo "Required Harbor Go version: ${REQUIRED_GO_VERSION}"
+          echo "Installed Go toolchain: ${INSTALLED_GO_VERSION}"
+
+          if [ "$(printf '%s\n%s\n' "${INSTALLED_GO_VERSION}" "${REQUIRED_GO_VERSION}" | sort -V | head -n 1)" != "${REQUIRED_GO_VERSION}" ]; then
+            echo "::error::Installed Go toolchain ${INSTALLED_GO_VERSION} does not satisfy Harbor requirement ${REQUIRED_GO_VERSION}"
+            exit 1
+          fi
 
       # Cache Go modules for faster builds
       - name: Cache Go modules
@@ -79,9 +106,9 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('harbor/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.detect-go-version.outputs.go_version }}-${{ hashFiles('harbor/src/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-${{ steps.detect-go-version.outputs.go_version }}-
 
       # No QEMU needed - we're running on native ARM64!
 

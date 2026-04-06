@@ -15,6 +15,10 @@ log_section "Building Registry Binary for ARM64"
 check_command "go"
 check_command "git"
 
+HARBOR_GO_VERSION=$(get_harbor_go_version ".") || exit_on_error "Failed to detect Harbor Go version from src/go.mod"
+ensure_installed_go_matches_harbor_requirement "." || exit_on_error "Installed Go toolchain does not meet Harbor requirements"
+log_info "Using installed Go toolchain compatible with Harbor requirement ${HARBOR_GO_VERSION}"
+
 # Create directories for registry binaries
 CURRENT_DIR=$(pwd)
 mkdir -p make/photon/registry/binary

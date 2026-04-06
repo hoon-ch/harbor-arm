@@ -52,6 +52,77 @@ check_command() {
     fi
 }
 
+# Extract a Go version from a go.mod file.
+get_go_mod_go_version() {
+    local go_mod_file=${1:-go.mod}
+
+    if [ ! -f "$go_mod_file" ]; then
+        log_error "Required go.mod file not found: $go_mod_file" >&2
+        return 1
+    fi
+
+    local version
+    version=$(sed -nE 's/^go[[:space:]]+([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$go_mod_file" | head -n 1)
+
+    if [ -z "$version" ]; then
+        log_error "Unable to determine Go version from $go_mod_file" >&2
+        return 1
+    fi
+
+    echo "$version"
+}
+
+# Read the Harbor-required Go version from the checked-out Harbor repository.
+get_harbor_go_version() {
+    local harbor_dir=${1:-.}
+    get_go_mod_go_version "${harbor_dir}/src/go.mod"
+}
+
+normalize_go_version() {
+    local version=${1#go}
+
+    if [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        echo "${version}.0"
+    else
+        echo "$version"
+    fi
+}
+
+go_version_at_least() {
+    local installed required
+    installed=$(normalize_go_version "$1")
+    required=$(normalize_go_version "$2")
+
+    [ "$(printf '%s\n%s\n' "$installed" "$required" | sort -V | tail -n 1)" = "$installed" ]
+}
+
+ensure_installed_go_matches_harbor_requirement() {
+    local harbor_dir=${1:-.}
+
+    check_command "go"
+
+    local required_version installed_version
+    required_version=$(get_harbor_go_version "$harbor_dir") || return 1
+    installed_version=$(go env GOVERSION 2>/dev/null || true)
+
+    if [ -z "$installed_version" ]; then
+        installed_version=$(go version | awk '{print $3}')
+    fi
+
+    installed_version=${installed_version#go}
+
+    log_info "Harbor requires Go ${required_version} (from ${harbor_dir}/src/go.mod)"
+    log_info "Installed Go toolchain: ${installed_version}"
+
+    if go_version_at_least "$installed_version" "$required_version"; then
+        log_success "Installed Go toolchain satisfies Harbor requirement"
+        return 0
+    fi
+
+    log_error "Installed Go toolchain (${installed_version}) does not satisfy Harbor requirement (${required_version})"
+    return 1
+}
+
 # Verify Docker image exists
 verify_image() {
     local image=$1
@@ -192,6 +263,8 @@ docker_push_retry() {
 # Export functions for use in other scripts
 export -f log_info log_success log_warning log_error log_section
 export -f exit_on_error check_command
+export -f get_go_mod_go_version get_harbor_go_version
+export -f normalize_go_version go_version_at_least ensure_installed_go_matches_harbor_requirement
 export -f verify_image verify_image_arch list_images
 export -f clean_version_tag verify_file verify_directory
 export -f get_current_arch show_build_env

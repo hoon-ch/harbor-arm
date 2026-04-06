@@ -37,7 +37,6 @@ declare -A HARBOR_IMAGE_NAMES=(
 )
 
 # Build configuration
-BUILD_CONFIG_GO_VERSION="1.24"
 BUILD_CONFIG_NODE_VERSION="16.18.0"
 BUILD_CONFIG_HARBOR_BASE_NAMESPACE="goharbor"
 
@@ -101,7 +100,6 @@ get_ghcr_image_reference() {
 
 # Export configuration
 export HARBOR_COMPONENTS
-export BUILD_CONFIG_GO_VERSION
 export BUILD_CONFIG_NODE_VERSION
 export BUILD_CONFIG_HARBOR_BASE_NAMESPACE
 export BUILD_FLAG_NOTARY

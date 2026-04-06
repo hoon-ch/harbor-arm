@@ -6,7 +6,7 @@ Guide for building Harbor ARM64 images locally and contributing to the project.
 
 - ARM64 machine or VM (Apple Silicon Mac, AWS Graviton, etc.)
 - Docker 20.10+
-- Go 1.24+
+- Go version required by the selected Harbor release (`harbor/src/go.mod`)
 - Git
 - Bash 4.0+
 - 8GB+ RAM recommended
@@ -92,7 +92,6 @@ HARBOR_COMPONENTS=(
 )
 
 # Build settings
-BUILD_CONFIG_GO_VERSION="1.24"
 BUILD_CONFIG_NODE_VERSION="16.18.0"
 
 # Registry settings
@@ -102,6 +101,10 @@ IMAGE_SUFFIX="-arm64"
 ```
 
 ### Build Scripts
+
+The build scripts expect a checked-out Harbor tree and read the required Go
+version from `src/go.mod`. Local and CI builds fail fast if the installed Go
+toolchain is older than the Harbor release requires.
 
 #### 1. build-base-images.sh
 
@@ -400,7 +403,7 @@ docker system df
 brew install docker go jq curl git
 
 # Install on Ubuntu/Debian
-apt-get install docker.io golang-1.24 jq curl git
+apt-get install docker.io golang jq curl git
 
 # Verify installation
 docker --version
