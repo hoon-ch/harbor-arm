@@ -23,7 +23,7 @@ jobs:
       version: ${{ steps.check.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check for new release
         id: check
@@ -56,10 +56,10 @@ jobs:
     runs-on: ubuntu-24.04-arm  # Use native ARM64 runner!
     steps:
       - name: Checkout harbor-arm repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Checkout Harbor repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.HARBOR_REPO }}
           ref: ${{ needs.check-release.outputs.version }}
@@ -80,7 +80,7 @@ jobs:
           echo "go_version=${GO_VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ steps.detect-go-version.outputs.go_version }}
           cache: true
@@ -177,7 +177,7 @@ jobs:
     # This job can run in parallel with integration-test and api-test
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -272,7 +272,7 @@ jobs:
     # This job can run in parallel with validate-images and api-test
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -348,7 +348,7 @@ jobs:
     # This job can run in parallel with validate-images and integration-test
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -423,7 +423,7 @@ jobs:
     # This job can run in parallel with validate-images, integration-test, and api-test
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -498,7 +498,7 @@ jobs:
     # This job waits for all parallel test jobs to complete
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
