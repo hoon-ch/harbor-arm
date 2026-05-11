@@ -30,6 +30,23 @@ log_info "Architecture: $(uname -m)"
 # Verify we're in the Harbor directory
 verify_file "make/photon/prepare/Dockerfile.base"
 
+log_section "Patching Photon Base Images for ARM64"
+
+patched_files=0
+while IFS= read -r base_dockerfile; do
+    if grep -q '^FROM goharbor/photon:5\.0$' "$base_dockerfile"; then
+        sed -i 's|^FROM goharbor/photon:5\.0$|FROM photon:5.0|' "$base_dockerfile"
+        log_info "Patched $base_dockerfile to use multi-arch photon:5.0"
+        patched_files=$((patched_files + 1))
+    fi
+done < <(find make/photon -name "Dockerfile.base" -type f 2>/dev/null)
+
+if [ "$patched_files" -eq 0 ]; then
+    log_warning "No goharbor/photon:5.0 base images found to patch"
+else
+    log_success "Patched $patched_files Photon base Dockerfile(s)"
+fi
+
 # Check what the base Dockerfile is based on
 log_section "Checking Base Image Dependencies"
 grep "^FROM" make/photon/prepare/Dockerfile.base || true
