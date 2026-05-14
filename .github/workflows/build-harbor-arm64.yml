@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Harbor version to build (e.g., v2.11.0)'
+        description: 'Harbor version to build (e.g., v2.15.1)'
         required: false
         type: string
         default: ''

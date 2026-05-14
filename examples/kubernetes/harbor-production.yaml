@@ -47,7 +47,7 @@ spec:
         fsGroup: 999
       containers:
       - name: database
-        image: hoon-ch/harbor-db-arm64:2.14.0
+        image: hoon-ch/harbor-db-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -141,7 +141,7 @@ spec:
         fsGroup: 999
       containers:
       - name: redis
-        image: hoon-ch/harbor-redis-arm64:2.14.0
+        image: hoon-ch/harbor-redis-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -223,7 +223,7 @@ spec:
         fsGroup: 10000
       containers:
       - name: core
-        image: hoon-ch/harbor-core-arm64:2.14.0
+        image: hoon-ch/harbor-core-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -341,7 +341,7 @@ spec:
         fsGroup: 10000
       containers:
       - name: registry
-        image: hoon-ch/harbor-registry-arm64:2.14.0
+        image: hoon-ch/harbor-registry-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -433,7 +433,7 @@ spec:
         fsGroup: 10000
       containers:
       - name: portal
-        image: hoon-ch/harbor-portal-arm64:2.14.0
+        image: hoon-ch/harbor-portal-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -507,7 +507,7 @@ spec:
         fsGroup: 10000
       containers:
       - name: jobservice
-        image: hoon-ch/harbor-jobservice-arm64:2.14.0
+        image: hoon-ch/harbor-jobservice-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -596,7 +596,7 @@ spec:
         fsGroup: 10000
       containers:
       - name: nginx
-        image: hoon-ch/harbor-nginx-arm64:2.14.0
+        image: hoon-ch/harbor-nginx-arm64:2.15.1
         imagePullPolicy: IfNotPresent
         resources:
           requests:
