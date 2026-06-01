@@ -4,265 +4,21 @@ Complete guide for deploying Harbor ARM64 across different platforms.
 
 ## Table of Contents
 
-- [Docker Standalone](#docker-standalone)
-- [Docker Compose](#docker-compose)
+- [Supported Deployment Paths](#supported-deployment-paths)
 - [Kubernetes with Helm](#kubernetes-with-helm)
-- [Kubernetes Production](#kubernetes-production)
+- [Kubernetes Reference Manifests](#kubernetes-reference-manifests)
 - [Configuration](#configuration)
 - [Post-Installation](#post-installation)
 
-## Docker Standalone
+## Supported Deployment Paths
 
-### Prerequisites
+Harbor containers are not supported as individually launched standalone `docker run` services. A working Harbor deployment requires generated configuration, secrets, certificates, component-specific config files, and coordinated service wiring.
 
-- Docker 20.10+ with ARM64 support
-- Minimum 4GB RAM
-- 20GB free disk space
+Supported deployment paths for these ARM64 images are:
 
-### Quick Start
-
-Run individual Harbor components:
-
-```bash
-# Create network
-docker network create harbor
-
-# Run Redis
-docker run -d \
-  --name harbor-redis \
-  --network harbor \
-  --restart always \
-  hoon-ch/harbor-redis-arm64:2.15.1
-
-# Run PostgreSQL
-docker run -d \
-  --name harbor-db \
-  --network harbor \
-  --restart always \
-  -e POSTGRES_PASSWORD=rootpassword \
-  -v /data/harbor/database:/var/lib/postgresql/data \
-  hoon-ch/harbor-db-arm64:2.15.1
-
-# Run Core
-docker run -d \
-  --name harbor-core \
-  --network harbor \
-  --restart always \
-  -e DATABASE_TYPE=postgresql \
-  -e POSTGRESQL_HOST=harbor-db \
-  -e POSTGRESQL_PORT=5432 \
-  -e POSTGRESQL_USERNAME=postgres \
-  -e POSTGRESQL_PASSWORD=rootpassword \
-  -e POSTGRESQL_DATABASE=registry \
-  -e REDIS_HOST=harbor-redis \
-  -e REDIS_PORT=6379 \
-  -v /data/harbor/core:/data \
-  hoon-ch/harbor-core-arm64:2.15.1
-
-# Run Registry
-docker run -d \
-  --name harbor-registry \
-  --network harbor \
-  --restart always \
-  -v /data/harbor/registry:/storage \
-  hoon-ch/harbor-registry-arm64:2.15.1
-
-# Run Portal
-docker run -d \
-  --name harbor-portal \
-  --network harbor \
-  --restart always \
-  hoon-ch/harbor-portal-arm64:2.15.1
-
-# Run Nginx
-docker run -d \
-  --name harbor-nginx \
-  --network harbor \
-  --restart always \
-  -p 80:8080 \
-  -p 443:8443 \
-  hoon-ch/harbor-nginx-arm64:2.15.1
-```
-
-### Verification
-
-```bash
-# Check containers
-docker ps | grep harbor
-
-# Access Harbor UI
-open http://localhost
-# Default: admin / Harbor12345
-```
-
-## Docker Compose
-
-### Prerequisites
-
-- Docker 20.10+ and Docker Compose 2.0+
-- Minimum 4GB RAM
-- 20GB free disk space
-
-### Full Deployment
-
-1. **Download compose file:**
-
-```bash
-wget https://raw.githubusercontent.com/hoon-ch/harbor-arm/main/examples/docker-compose/harbor-arm64.yml
-```
-
-2. **Start Harbor:**
-
-```bash
-docker-compose -f harbor-arm64.yml up -d
-```
-
-3. **Verify deployment:**
-
-```bash
-# Check status
-docker-compose -f harbor-arm64.yml ps
-
-# View logs
-docker-compose -f harbor-arm64.yml logs -f
-
-# Access UI
-open http://localhost:8080
-```
-
-### Custom Configuration
-
-Create your own `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  redis:
-    image: hoon-ch/harbor-redis-arm64:2.15.1
-    container_name: harbor-redis
-    restart: always
-    networks:
-      - harbor
-
-  database:
-    image: hoon-ch/harbor-db-arm64:2.15.1
-    container_name: harbor-db
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
-    volumes:
-      - database-data:/var/lib/postgresql/data
-    networks:
-      - harbor
-
-  core:
-    image: hoon-ch/harbor-core-arm64:2.15.1
-    container_name: harbor-core
-    restart: always
-    environment:
-      DATABASE_TYPE: postgresql
-      POSTGRESQL_HOST: database
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: ${DB_PASSWORD:-changeme}
-      POSTGRESQL_DATABASE: registry
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    volumes:
-      - core-data:/data
-    networks:
-      - harbor
-    depends_on:
-      - database
-      - redis
-
-  jobservice:
-    image: hoon-ch/harbor-jobservice-arm64:2.15.1
-    container_name: harbor-jobservice
-    restart: always
-    environment:
-      CORE_URL: http://core:8080
-      REGISTRY_URL: http://registry:5000
-    volumes:
-      - jobservice-data:/var/log/jobs
-    networks:
-      - harbor
-    depends_on:
-      - core
-      - registry
-
-  registry:
-    image: hoon-ch/harbor-registry-arm64:2.15.1
-    container_name: harbor-registry
-    restart: always
-    volumes:
-      - registry-data:/storage
-    networks:
-      - harbor
-
-  registryctl:
-    image: hoon-ch/harbor-registryctl-arm64:2.15.1
-    container_name: harbor-registryctl
-    restart: always
-    environment:
-      CORE_URL: http://core:8080
-      JOBSERVICE_URL: http://jobservice:8080
-    volumes:
-      - registry-data:/storage
-    networks:
-      - harbor
-    depends_on:
-      - registry
-
-  portal:
-    image: hoon-ch/harbor-portal-arm64:2.15.1
-    container_name: harbor-portal
-    restart: always
-    networks:
-      - harbor
-    depends_on:
-      - core
-
-  nginx:
-    image: hoon-ch/harbor-nginx-arm64:2.15.1
-    container_name: harbor-nginx
-    restart: always
-    ports:
-      - "80:8080"
-      - "443:8443"
-    networks:
-      - harbor
-    depends_on:
-      - portal
-      - core
-      - registry
-
-volumes:
-  database-data:
-  core-data:
-  jobservice-data:
-  registry-data:
-
-networks:
-  harbor:
-    driver: bridge
-```
-
-### Environment Variables
-
-Create `.env` file:
-
-```bash
-# Database
-DB_PASSWORD=securepassword123
-
-# Harbor
-HARBOR_ADMIN_PASSWORD=Harbor12345
-
-# Version
-HARBOR_VERSION=2.15.1
-```
+- Official Harbor Helm chart with ARM64 image overrides. See [Kubernetes with Helm](#kubernetes-with-helm) and [`examples/helm/values-arm64.yaml`](../examples/helm/values-arm64.yaml).
+- Docker Compose generated through the Harbor `prepare` flow. The compose reference in [`examples/docker-compose/harbor-arm64.yml`](../examples/docker-compose/harbor-arm64.yml) requires generated `common/config`, secrets, and data directories.
+- Kubernetes reference manifests that are validated by `scripts/test/e2e-harbor-smoke.sh` or an equivalent CI job before being promoted for production use.
 
 ## Kubernetes with Helm
 
@@ -290,6 +46,8 @@ expose:
   tls:
     enabled: true
     certSource: auto
+    auto:
+      commonName: harbor.example.com
   loadBalancer:
     name: harbor
     ports:
@@ -409,11 +167,12 @@ helm uninstall harbor -n harbor
 kubectl delete namespace harbor
 ```
 
-## Kubernetes Production
+## Kubernetes Reference Manifests
 
-For production deployments with high availability, auto-scaling, and advanced features:
+The Kubernetes manifests in `examples/kubernetes/` are reference examples until
+they are covered by `scripts/test/e2e-harbor-smoke.sh` or an equivalent CI job.
 
-**See [Kubernetes Production Deployment Guide](../examples/kubernetes/PRODUCTION_DEPLOYMENT.md)**
+**See [Kubernetes reference guide](../examples/kubernetes/PRODUCTION_DEPLOYMENT.md)**
 
 Key features:
 - Multiple replicas for HA
@@ -424,11 +183,9 @@ Key features:
 - Security contexts
 - Monitoring integration
 
-Quick deploy:
-
-```bash
-kubectl apply -f examples/kubernetes/harbor-production.yaml
-```
+Use these manifests as reference inputs only. Do not promote them to a
+deployment path until they are covered by `scripts/test/e2e-harbor-smoke.sh` or
+an equivalent CI job for your target Harbor version and cluster shape.
 
 ## Configuration
 
@@ -626,7 +383,7 @@ kubectl logs -f deployment/harbor-core -n harbor
 - [Development Guide](DEVELOPMENT.md) - Build images locally
 - [Architecture Guide](architecture.md) - Understand the build system
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Solve common problems
-- [Kubernetes Production Guide](../examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Production deployment
+- [Kubernetes Reference Guide](../examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Reference deployment
 
 ## Support
 

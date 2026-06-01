@@ -1,7 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Central configuration file for Harbor ARM64 build system
 # This file contains all shared configuration variables and mappings
+
+if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+    echo "Harbor ARM64 scripts require Bash 4 or newer because scripts/config.sh uses associative arrays." >&2
+    return 1 2>/dev/null || exit 1
+fi
 
 # Harbor components list
 # These are the components that will be built, tested, and pushed
@@ -19,6 +24,25 @@ HARBOR_COMPONENTS=(
     "exporter"
 )
 
+# Components supported by scripts/build-local.sh's generic Dockerfile builder.
+# Exporter stays in HARBOR_COMPONENTS for the CI/published matrix, but is built
+# by scripts/build/build-harbor-components.sh because it needs a precompiled
+# binary and temporary Dockerfile.
+LOCAL_BUILD_COMPONENTS=(
+    "prepare"
+    "core"
+    "jobservice"
+    "portal"
+    "nginx"
+    "log"
+    "db"
+    "redis"
+    "registry"
+    "registryctl"
+)
+
+OPTIONAL_COMPONENTS=()
+
 # Image name mappings: component_name -> actual_image_name
 # Some Harbor components use different names for their Docker images
 declare -A HARBOR_IMAGE_NAMES=(
@@ -33,7 +57,6 @@ declare -A HARBOR_IMAGE_NAMES=(
     ["registry"]="registry-photon"
     ["registryctl"]="harbor-registryctl"
     ["exporter"]="harbor-exporter"
-    ["trivy-adapter"]="trivy-adapter-photon"
 )
 
 # Build configuration
@@ -90,6 +113,29 @@ get_pushed_image_reference() {
     echo "${username}/harbor-${component}${IMAGE_SUFFIX}:${version}"
 }
 
+# Helper function: Print built components as comma-separated values
+component_list_csv() {
+    local IFS=,
+    echo "${HARBOR_COMPONENTS[*]}"
+}
+
+# Helper function: Print built components as space-separated values
+component_list_space() {
+    echo "${HARBOR_COMPONENTS[*]}"
+}
+
+# Helper function: Check whether a component is optional
+is_optional_component() {
+    local component=$1
+    local optional
+    for optional in "${OPTIONAL_COMPONENTS[@]}"; do
+        if [ "$optional" = "$component" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Helper function: Build GHCR image reference
 get_ghcr_image_reference() {
     local repo_owner=$1
@@ -100,6 +146,8 @@ get_ghcr_image_reference() {
 
 # Export configuration
 export HARBOR_COMPONENTS
+export LOCAL_BUILD_COMPONENTS
+export OPTIONAL_COMPONENTS
 export BUILD_CONFIG_NODE_VERSION
 export BUILD_CONFIG_HARBOR_BASE_NAMESPACE
 export BUILD_FLAG_NOTARY
@@ -117,4 +165,7 @@ export RETRY_TIMEOUT_SECONDS
 export -f get_image_name
 export -f get_image_reference
 export -f get_pushed_image_reference
+export -f component_list_csv
+export -f component_list_space
+export -f is_optional_component
 export -f get_ghcr_image_reference

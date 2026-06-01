@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Build Harbor base images for ARM64
@@ -20,6 +20,25 @@ DOCKER_USERNAME=$2
 VERSION_TAG=$(clean_version_tag "$VERSION")
 
 start_timer
+
+FAILED_REQUIRED_BASE_IMAGES=()
+FAILED_OPTIONAL_BASE_IMAGES=()
+
+record_base_image_failure() {
+    local component=$1
+
+    if is_optional_component "$component"; then
+        if [[ " ${FAILED_OPTIONAL_BASE_IMAGES[*]} " != *" $component "* ]]; then
+            FAILED_OPTIONAL_BASE_IMAGES+=("$component")
+        fi
+        log_warning "Optional base image failed: $component"
+    else
+        if [[ " ${FAILED_REQUIRED_BASE_IMAGES[*]} " != *" $component "* ]]; then
+            FAILED_REQUIRED_BASE_IMAGES+=("$component")
+        fi
+        log_error "Required base image failed: $component"
+    fi
+}
 
 log_section "Building Base Images for ARM64"
 log_info "Version: $VERSION"
@@ -88,13 +107,22 @@ for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); 
             "$component_dir/"; then
             log_success "Built base image for ${component_name}"
         else
-            log_warning "Failed to build base image for ${component_name}"
+            record_base_image_failure "$component_name"
         fi
     fi
 done
 
 # List all built base images
 list_images "harbor.*base|prepare"
+
+if [ ${#FAILED_OPTIONAL_BASE_IMAGES[@]} -gt 0 ]; then
+    log_warning "Optional base image failures: ${FAILED_OPTIONAL_BASE_IMAGES[*]}"
+fi
+
+if [ ${#FAILED_REQUIRED_BASE_IMAGES[@]} -gt 0 ]; then
+    log_error "Required base image failures: ${FAILED_REQUIRED_BASE_IMAGES[*]}"
+    exit 1
+fi
 
 end_timer
 log_success "Base images build completed"

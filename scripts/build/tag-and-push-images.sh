@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Tag and push Harbor ARM64 images to registries
@@ -73,7 +73,7 @@ for component in "${HARBOR_COMPONENTS[@]}"; do
             docker tag ${SOURCE_IMAGE} ${GHCR_IMAGE_LATEST}
         fi
 
-        # Push to Docker Hub with retry
+        # Push the image to Docker Hub with retry
         log_info "Pushing to Docker Hub..."
         if docker_push_retry ${DOCKERHUB_IMAGE_VERSIONED} && \
            { [ "$TAG_LATEST" != "true" ] || docker_push_retry ${DOCKERHUB_IMAGE_LATEST}; }; then

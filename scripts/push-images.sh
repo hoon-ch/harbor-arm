@@ -1,17 +1,21 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Harbor ARM64 Image Push Script
 # This script pushes locally built Harbor ARM64 images to container registries
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/config.sh"
+
 VERSION_TAG="${1:-latest}"
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-}"
-COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter)
+COMPONENTS=("${LOCAL_BUILD_COMPONENTS[@]}")
 
 echo "=================================================="
 echo "Harbor ARM64 Image Push Script"
 echo "=================================================="
 echo "Version: $VERSION_TAG"
+echo "Component set: local build subset"
 echo "=================================================="
 
 # Check if Docker is logged in
@@ -52,7 +56,7 @@ push_component() {
     docker tag "$local_image" "$dockerhub_image"
     docker tag "$local_image" "$dockerhub_latest"
 
-    # Push to Docker Hub
+    # Push the local image to Docker Hub
     docker push "$dockerhub_image"
     if [ "$VERSION_TAG" != "latest" ]; then
         docker push "$dockerhub_latest"
@@ -61,7 +65,7 @@ push_component() {
     echo "✅ Successfully pushed $component"
 }
 
-# Push all components
+# Push locally built components
 failed_components=()
 for component in "${COMPONENTS[@]}"; do
     if ! push_component "$component"; then
@@ -79,7 +83,7 @@ echo "Registry: Docker Hub ($DOCKERHUB_USERNAME)"
 echo ""
 
 if [ ${#failed_components[@]} -eq 0 ]; then
-    echo "✅ All components pushed successfully!"
+    echo "✅ Local component subset pushed successfully!"
 else
     echo "⚠️  Some components failed to push:"
     for component in "${failed_components[@]}"; do

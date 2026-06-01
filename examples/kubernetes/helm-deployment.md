@@ -1,5 +1,9 @@
 # Harbor ARM64 on Kubernetes 사용 예시
 
+> Reference example only. This file must not be advertised as production-ready
+> until it is covered by `scripts/test/e2e-harbor-smoke.sh` or an equivalent CI
+> job.
+
 ## Helm을 사용한 설치
 
 ### 1. Harbor Helm Chart 다운로드
@@ -21,49 +25,44 @@ imageChartStorage:
 core:
   image:
     repository: hoon-ch/harbor-core-arm64
-    tag: 2.13.0
+    tag: 2.15.1
 
 jobservice:
   image:
     repository: hoon-ch/harbor-jobservice-arm64
-    tag: 2.13.0
+    tag: 2.15.1
 
 registry:
   registry:
     image:
       repository: hoon-ch/harbor-registry-arm64
-      tag: 2.13.0
+      tag: 2.15.1
   controller:
     image:
       repository: hoon-ch/harbor-registryctl-arm64
-      tag: 2.13.0
+      tag: 2.15.1
 
 portal:
   image:
     repository: hoon-ch/harbor-portal-arm64
-    tag: 2.13.0
-
-trivy:
-  image:
-    repository: hoon-ch/harbor-trivy-adapter-arm64
-    tag: 2.13.0
+    tag: 2.15.1
 
 database:
   internal:
     image:
       repository: hoon-ch/harbor-db-arm64
-      tag: 2.13.0
+      tag: 2.15.1
 
 redis:
   internal:
     image:
       repository: hoon-ch/harbor-redis-arm64
-      tag: 2.13.0
+      tag: 2.15.1
 
 nginx:
   image:
     repository: hoon-ch/harbor-nginx-arm64
-    tag: 2.13.0
+    tag: 2.15.1
 
 # NodeSelector를 사용하여 ARM64 노드에서만 실행되도록 설정
 nodeSelector:
@@ -85,6 +84,7 @@ helm install harbor harbor/harbor \
   -n harbor \
   --set expose.type=loadBalancer \
   --set expose.tls.enabled=true \
+  --set expose.tls.auto.commonName=harbor.example.com \
   --set externalURL=https://harbor.example.com \
   --set harborAdminPassword=Harbor12345
 
@@ -122,34 +122,16 @@ kubectl get nodes -o custom-columns=NAME:.metadata.name,ARCH:.status.nodeInfo.ar
 - 모든 Harbor 플러그인이 ARM64를 지원하는지 확인
 - 외부 스토리지 드라이버의 ARM64 지원 여부 확인
 
-## 테스트 배포 예시
+## 검증
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: harbor-core-test
-  namespace: harbor
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: harbor-core
-  template:
-    metadata:
-      labels:
-        app: harbor-core
-    spec:
-      nodeSelector:
-        kubernetes.io/arch: arm64
-      containers:
-      - name: harbor-core
-        image: hoon-ch/harbor-core-arm64:2.13.0
-        ports:
-        - containerPort: 8080
-        env:
-        - name: CONFIG_PATH
-          value: /etc/core/app.conf
+Helm 차트가 생성한 전체 Harbor 리소스를 대상으로 검증하세요. 단일
+`harbor-core` Pod만 따로 배포하는 방식은 필요한 설정, secret, 인증서,
+의존 서비스가 빠지므로 지원되는 테스트가 아닙니다.
+
+```bash
+helm template harbor harbor/harbor -f values-arm64.yaml >/tmp/harbor-arm64-rendered.yaml
+kubectl get pods -n harbor -o wide
+kubectl describe pod <pod-name> -n harbor
 ```
 
 ## 문제 해결

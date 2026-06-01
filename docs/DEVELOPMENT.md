@@ -36,8 +36,13 @@ This will:
 2. Build base images
 3. Build registry binary
 4. Patch build files
-5. Build all components
+5. Build the local component subset in `LOCAL_BUILD_COMPONENTS`
 6. Tag images locally
+
+`scripts/build-local.sh` and `scripts/push-images.sh` operate on
+`LOCAL_BUILD_COMPONENTS`, which currently excludes `exporter`. The full
+published matrix in `HARBOR_COMPONENTS`, including `exporter`, is built and
+published by the CI build path.
 
 ### Test Built Images
 
@@ -83,13 +88,17 @@ harbor-arm/
 
 All shared configuration is in `scripts/config.sh`:
 
+`scripts/config.sh` requires Bash 4 or newer because it uses associative arrays.
+On macOS, install and run a newer Bash from your `PATH` instead of `/bin/bash`
+when sourcing this file or using local entrypoint scripts.
+
 ```bash
 # Harbor components
-HARBOR_COMPONENTS=(
-    "prepare" "core" "jobservice" "portal"
-    "nginx" "log" "db" "redis"
-    "registry" "registryctl" "exporter"
-)
+source scripts/config.sh
+component_list_space
+
+# Local generic builder components
+printf "%s\n" "${LOCAL_BUILD_COMPONENTS[@]}"
 
 # Build settings
 BUILD_CONFIG_NODE_VERSION="16.18.0"
@@ -105,6 +114,13 @@ IMAGE_SUFFIX="-arm64"
 The build scripts expect a checked-out Harbor tree and read the required Go
 version from `src/go.mod`. Local and CI builds fail fast if the installed Go
 toolchain is older than the Harbor release requires.
+
+`scripts/build-local.sh` and `scripts/push-images.sh` use
+`LOCAL_BUILD_COMPONENTS`, which currently excludes `exporter` because the
+generic local builder cannot build it. Use the CI build path
+(`scripts/build/build-harbor-components.sh` and
+`scripts/build/tag-and-push-images.sh`) for the full published matrix in
+`HARBOR_COMPONENTS`, including `exporter`.
 
 #### 1. build-base-images.sh
 
@@ -162,6 +178,9 @@ Tags and pushes images to registries:
 - Architecture detection
 - Timer functions
 
+`scripts/common.sh` loads `scripts/config.sh`, so it also requires Bash 4 or
+newer. On macOS, source it from a newer Bash instead of `/bin/bash`.
+
 Example usage:
 
 ```bash
@@ -198,6 +217,21 @@ Tests container startup and basic functionality:
 ```bash
 ./scripts/test/integration-test-simple.sh v2.15.1 myusername
 ```
+
+### End-to-End Smoke Test
+
+Runs Harbor through the generated `prepare` compose flow and verifies the ping
+endpoint on the Linux/CI ARM64 Docker environment:
+
+```bash
+./scripts/test/e2e-harbor-smoke.sh v2.15.1 myusername
+```
+
+This test must verify `http://localhost:8080/api/v2.0/ping` through the prepare
+flow. While the CI job is non-blocking, failures should be captured and fixed
+until the job is reliable enough to become blocking. The current script is
+scoped to the CI/Linux prepare flow; local macOS runs may need Docker Desktop
+file-sharing adjustments before they are supported.
 
 ### API Tests
 
