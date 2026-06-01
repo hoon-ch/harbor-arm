@@ -189,6 +189,23 @@ Images are pushed to both:
 - Unnecessary CI/CD runs
 - Version conflicts
 
+### Registry Binary Source Pin
+`scripts/build/build-registry-binary.sh` builds the Docker registry binary from
+the source repository and ref declared by the checked-out Harbor source; it does
+not use a repository default branch. CI normally uses Harbor's
+`DISTRIBUTION_SRC` for the repository and `REGISTRY_SRC_TAG` for the ref. If
+`DISTRIBUTION_SRC` is absent, the script falls back to upstream
+`distribution/distribution`. If `REGISTRY_SRC_TAG` is absent, the script falls
+back to `REGISTRYVERSION`, then to `src/go.mod` entries that require
+`github.com/distribution/distribution` directly or replace another module with
+that source. Go module compatibility suffixes such as `+incompatible` are
+stripped for git checkout refs; Harbor source tags such as
+`v2.8.3-harbor.1-rc.1` are preserved exactly.
+
+If detection fails, the build stops with an error instead of guessing a branch.
+Operators can override the source with `REGISTRY_SOURCE_REPO` and
+`REGISTRY_SOURCE_REF`.
+
 ## Local Development
 
 Users can build the local component subset using:

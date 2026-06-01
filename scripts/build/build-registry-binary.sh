@@ -8,6 +8,88 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common.sh"
 
+normalize_registry_source_ref() {
+    local ref=$1
+
+    ref="${ref#\"}"
+    ref="${ref%\"}"
+    ref="${ref#\'}"
+    ref="${ref%\'}"
+
+    if [[ "$ref" =~ ^v ]]; then
+        echo "$ref"
+    elif [[ "$ref" =~ ^[0-9]+(\.[0-9]+){1,2}([-+][0-9A-Za-z.-]+)?$ ]]; then
+        echo "v$ref"
+    else
+        echo "$ref"
+    fi
+}
+
+normalize_go_module_registry_ref() {
+    local ref=$1
+
+    ref="${ref%%+incompatible}"
+    normalize_registry_source_ref "$ref"
+}
+
+detect_registry_metadata_value() {
+    local harbor_dir=$1
+    local variable_name=$2
+    local value=""
+
+    while IFS= read -r metadata_file; do
+        value=$(sed -nE "s|^[[:space:]]*${variable_name}[[:space:]]*[:?+]?=[[:space:]]*([^[:space:]#]+).*|\\1|p" "$metadata_file" | head -n 1)
+        if [ -n "$value" ]; then
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            echo "$value"
+            return 0
+        fi
+    done < <(
+        find "$harbor_dir" \
+            \( -name Makefile -o -path '*/make/photon/registry/*' \) \
+            -type f 2>/dev/null
+    )
+
+    return 1
+}
+
+detect_registry_source_repo() {
+    local harbor_dir=$1
+
+    detect_registry_metadata_value "$harbor_dir" "DISTRIBUTION_SRC" || echo "https://github.com/distribution/distribution.git"
+}
+
+detect_registry_source_ref() {
+    local harbor_dir=$1
+    local ref=""
+
+    if ref=$(detect_registry_metadata_value "$harbor_dir" "REGISTRY_SRC_TAG"); then
+        normalize_registry_source_ref "$ref"
+        return 0
+    fi
+
+    if ref=$(detect_registry_metadata_value "$harbor_dir" "REGISTRYVERSION"); then
+        normalize_registry_source_ref "$ref"
+        return 0
+    fi
+
+    if [ -f "$harbor_dir/src/go.mod" ]; then
+        ref=$(sed -nE 's/^[[:space:]]*(require[[:space:]]+)?github\.com\/distribution\/distribution(\/v[0-9]+)?[[:space:]]+([^[:space:]]+).*/\3/p' "$harbor_dir/src/go.mod" | head -n 1)
+        if [ -z "$ref" ]; then
+            ref=$(sed -nE 's/^[[:space:]]*(replace[[:space:]]+)?[^[:space:]]+[[:space:]]+=>[[:space:]]+github\.com\/distribution\/distribution(\/v[0-9]+)?[[:space:]]+([^[:space:]]+).*/\3/p' "$harbor_dir/src/go.mod" | head -n 1)
+        fi
+        if [ -n "$ref" ]; then
+            normalize_go_module_registry_ref "$ref"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 start_timer
 
 log_section "Building Registry Binary for ARM64"
@@ -24,10 +106,22 @@ CURRENT_DIR=$(pwd)
 mkdir -p make/photon/registry/binary
 mkdir -p make/photon/registryctl/binary
 
+REGISTRY_SOURCE_REPO="${REGISTRY_SOURCE_REPO:-$(detect_registry_source_repo "$CURRENT_DIR")}"
+if [ -z "${REGISTRY_SOURCE_REF:-}" ]; then
+    if ! REGISTRY_SOURCE_REF=$(detect_registry_source_ref "$CURRENT_DIR"); then
+        log_error "Unable to detect distribution/distribution source ref from Harbor source."
+        log_error "Set REGISTRY_SOURCE_REF explicitly, or ensure Harbor source includes REGISTRY_SRC_TAG, REGISTRYVERSION, or github.com/distribution/distribution in src/go.mod."
+        exit 1
+    fi
+fi
+
+log_info "Registry source repository: ${REGISTRY_SOURCE_REPO}"
+log_info "Registry source ref: ${REGISTRY_SOURCE_REF}"
+
 # Clone and build registry from source for ARM64
 log_info "Cloning distribution repository..."
 DIST_DIR="/tmp/distribution-$$"
-git clone --depth 1 https://github.com/distribution/distribution.git "$DIST_DIR"
+git clone --depth 1 --branch "$REGISTRY_SOURCE_REF" "$REGISTRY_SOURCE_REPO" "$DIST_DIR"
 
 cd "$DIST_DIR"
 
