@@ -43,10 +43,6 @@ harbor_admin_password: Harbor12345
 database:
   password: root123
 data_volume: ${WORK_DIR}/data
-trivy:
-  ignore_unfixed: false
-  skip_update: true
-  offline_scan: true
 EOF
 
 log_info "Generating Harbor configuration with prepare image"
