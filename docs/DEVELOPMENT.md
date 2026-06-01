@@ -218,6 +218,21 @@ Tests container startup and basic functionality:
 ./scripts/test/integration-test-simple.sh v2.15.1 myusername
 ```
 
+### End-to-End Smoke Test
+
+Runs Harbor through the generated `prepare` compose flow and verifies the ping
+endpoint on the Linux/CI ARM64 Docker environment:
+
+```bash
+./scripts/test/e2e-harbor-smoke.sh v2.15.1 myusername
+```
+
+This test must verify `http://localhost:8080/api/v2.0/ping` through the prepare
+flow. While the CI job is non-blocking, failures should be captured and fixed
+until the job is reliable enough to become blocking. The current script is
+scoped to the CI/Linux prepare flow; local macOS runs may need Docker Desktop
+file-sharing adjustments before they are supported.
+
 ### API Tests
 
 Tests API components:
