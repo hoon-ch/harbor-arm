@@ -21,6 +21,25 @@ VERSION_TAG=$(clean_version_tag "$VERSION")
 
 start_timer
 
+FAILED_REQUIRED_COMPONENTS=()
+FAILED_OPTIONAL_COMPONENTS=()
+
+record_component_failure() {
+    local component=$1
+
+    if is_optional_component "$component"; then
+        if [[ " ${FAILED_OPTIONAL_COMPONENTS[*]} " != *" $component "* ]]; then
+            FAILED_OPTIONAL_COMPONENTS+=("$component")
+        fi
+        log_warning "Optional component failed: $component"
+    else
+        if [[ " ${FAILED_REQUIRED_COMPONENTS[*]} " != *" $component "* ]]; then
+            FAILED_REQUIRED_COMPONENTS+=("$component")
+        fi
+        log_error "Required component failed: $component"
+    fi
+}
+
 log_section "Building Harbor Components for ARM64"
 log_info "Version: $VERSION"
 log_info "Version Tag: $VERSION_TAG"
@@ -66,7 +85,8 @@ if [ -d "src/cmd/exporter" ]; then
     file make/photon/exporter/harbor_exporter
     ls -lh make/photon/exporter/harbor_exporter
 else
-    log_warning "Exporter source directory not found, skipping exporter build"
+    log_warning "Exporter source directory not found"
+    record_component_failure "exporter"
 fi
 
 # Now build each Docker image manually using regular docker build
@@ -92,7 +112,7 @@ for component in core jobservice; do
         .; then
         log_success "Built $component"
     else
-        log_warning "Failed to build $component"
+        record_component_failure "$component"
     fi
 done
 
@@ -107,13 +127,14 @@ if docker build \
     .; then
     log_success "Built portal"
 else
-    log_warning "Failed to build portal"
+    record_component_failure "portal"
 fi
 
 # Build nginx, log, db, redis
 for component in nginx log db redis; do
     if [ ! -d "make/photon/$component" ]; then
         log_warning "Component directory not found: $component"
+        record_component_failure "$component"
         continue
     fi
 
@@ -134,7 +155,7 @@ for component in nginx log db redis; do
         .; then
         log_success "Built $component"
     else
-        log_warning "Failed to build $component"
+        record_component_failure "$component"
     fi
 done
 
@@ -148,7 +169,7 @@ if docker build \
     .; then
     log_success "Built registry"
 else
-    log_warning "Failed to build registry"
+    record_component_failure "registry"
 fi
 
 log_info "Building registryctl..."
@@ -160,7 +181,7 @@ if docker build \
     .; then
     log_success "Built registryctl"
 else
-    log_warning "Failed to build registryctl"
+    record_component_failure "registryctl"
 fi
 
 # Build exporter using our pre-built ARM64 binary
@@ -195,17 +216,27 @@ EOF
         .; then
         log_success "Built exporter"
     else
-        log_warning "Failed to build exporter"
+        record_component_failure "exporter"
     fi
 
     rm -f /tmp/Dockerfile.exporter
 else
     log_warning "Exporter binary not found, skipping exporter image build"
+    record_component_failure "exporter"
 fi
 
 # List all built images
 log_section "Built Images Summary"
 list_images "${DOCKER_USERNAME}"
+
+if [ ${#FAILED_OPTIONAL_COMPONENTS[@]} -gt 0 ]; then
+    log_warning "Optional component failures: ${FAILED_OPTIONAL_COMPONENTS[*]}"
+fi
+
+if [ ${#FAILED_REQUIRED_COMPONENTS[@]} -gt 0 ]; then
+    log_error "Required component failures: ${FAILED_REQUIRED_COMPONENTS[*]}"
+    exit 1
+fi
 
 end_timer
 log_success "Harbor components build completed"
