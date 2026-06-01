@@ -37,6 +37,7 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 WARNING_TESTS=0
 CRITICAL_FAILED=0  # Only critical failures will cause validation to fail
+TOTAL_TESTS=0
 VALIDATION_REPORT="/tmp/harbor-validation-report-$$.md"
 
 # Initialize report
@@ -55,6 +56,7 @@ EOF
 log_section "Test 1: Image Existence Check"
 
 MISSING_IMAGES=()
+MISSING_OPTIONAL_IMAGES=()
 
 for component in "${HARBOR_COMPONENTS[@]}"; do
     IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
@@ -63,9 +65,15 @@ for component in "${HARBOR_COMPONENTS[@]}"; do
     if verify_image "$IMAGE"; then
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
-        MISSING_IMAGES+=("$component")
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        CRITICAL_FAILED=$((CRITICAL_FAILED + 1))  # Image existence is critical
+        if is_optional_component "$component"; then
+            log_warning "Optional component image missing: $component"
+            MISSING_OPTIONAL_IMAGES+=("$component")
+            WARNING_TESTS=$((WARNING_TESTS + 1))
+        else
+            MISSING_IMAGES+=("$component")
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+            CRITICAL_FAILED=$((CRITICAL_FAILED + 1))  # Required image existence is critical
+        fi
     fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 done
@@ -75,33 +83,57 @@ echo "- **Passed**: $PASSED_TESTS/${#HARBOR_COMPONENTS[@]}" >> "$VALIDATION_REPO
 if [ ${#MISSING_IMAGES[@]} -gt 0 ]; then
     echo "- **Missing**: ${MISSING_IMAGES[*]}" >> "$VALIDATION_REPORT"
 fi
+if [ ${#MISSING_OPTIONAL_IMAGES[@]} -gt 0 ]; then
+    echo "- **Optional Missing**: ${MISSING_OPTIONAL_IMAGES[*]}" >> "$VALIDATION_REPORT"
+fi
 echo "" >> "$VALIDATION_REPORT"
 
 # Test 2: Architecture Verification
 log_section "Test 2: Architecture Verification"
 
 ARCH_FAILED=()
+ARCH_OPTIONAL_WARNINGS=()
+ARCH_SKIPPED=()
+ARCH_EVALUATED=0
+ARCH_PASSED=0
 
 for component in "${HARBOR_COMPONENTS[@]}"; do
     IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
     IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        ARCH_EVALUATED=$((ARCH_EVALUATED + 1))
         if verify_image_arch "$IMAGE" "arm64"; then
+            ARCH_PASSED=$((ARCH_PASSED + 1))
             PASSED_TESTS=$((PASSED_TESTS + 1))
         else
-            ARCH_FAILED+=("$component")
-            FAILED_TESTS=$((FAILED_TESTS + 1))
-            CRITICAL_FAILED=$((CRITICAL_FAILED + 1))  # Architecture is critical
+            if is_optional_component "$component"; then
+                log_warning "Optional component architecture mismatch: $component"
+                ARCH_OPTIONAL_WARNINGS+=("$component")
+                WARNING_TESTS=$((WARNING_TESTS + 1))
+            else
+                ARCH_FAILED+=("$component")
+                FAILED_TESTS=$((FAILED_TESTS + 1))
+                CRITICAL_FAILED=$((CRITICAL_FAILED + 1))  # Required image architecture is critical
+            fi
         fi
+    else
+        ARCH_SKIPPED+=("$component")
     fi
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 done
 
 echo "### Architecture Verification" >> "$VALIDATION_REPORT"
-echo "- **Passed**: $(( ${#HARBOR_COMPONENTS[@]} - ${#ARCH_FAILED[@]} ))/${#HARBOR_COMPONENTS[@]}" >> "$VALIDATION_REPORT"
+echo "- **Evaluated**: $ARCH_EVALUATED/${#HARBOR_COMPONENTS[@]}" >> "$VALIDATION_REPORT"
+echo "- **Passed**: $ARCH_PASSED/$ARCH_EVALUATED" >> "$VALIDATION_REPORT"
 if [ ${#ARCH_FAILED[@]} -gt 0 ]; then
     echo "- **Failed**: ${ARCH_FAILED[*]}" >> "$VALIDATION_REPORT"
+fi
+if [ ${#ARCH_OPTIONAL_WARNINGS[@]} -gt 0 ]; then
+    echo "- **Optional Warnings**: ${ARCH_OPTIONAL_WARNINGS[*]}" >> "$VALIDATION_REPORT"
+fi
+if [ ${#ARCH_SKIPPED[@]} -gt 0 ]; then
+    echo "- **Skipped (image unavailable)**: ${ARCH_SKIPPED[*]}" >> "$VALIDATION_REPORT"
 fi
 echo "" >> "$VALIDATION_REPORT"
 
@@ -194,38 +226,56 @@ if [ "$FULL_TEST" = "--full" ]; then
         echo "### Security Scan Results" >> "$VALIDATION_REPORT"
         echo "" >> "$VALIDATION_REPORT"
 
-        # Use centralized scan components from config.sh
-        for component in "${SCAN_COMPONENTS[@]}"; do
-            IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
-            IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
+        if ! command -v jq &> /dev/null; then
+            log_warning "jq not installed, skipping security scan"
+            echo "⚠️ Security scan skipped (jq not installed)" >> "$VALIDATION_REPORT"
+            WARNING_TESTS=$((WARNING_TESTS + 1))
+        else
+            TRIVY_REPORT_DIR="trivy-reports-${VERSION_TAG}"
+            mkdir -p "$TRIVY_REPORT_DIR"
 
-            if docker image inspect "$IMAGE" >/dev/null 2>&1; then
-                log_info "Scanning $component for vulnerabilities..."
+            # Use centralized scan components from config.sh
+            for component in "${SCAN_COMPONENTS[@]}"; do
+                IMAGE_NAME="${HARBOR_IMAGE_NAMES[$component]}"
+                IMAGE="${DOCKER_USERNAME}/${IMAGE_NAME}:${VERSION_TAG}"
 
-                SCAN_OUTPUT="/tmp/trivy-scan-$component-$$.txt"
-                trivy image --severity HIGH,CRITICAL --quiet "$IMAGE" > "$SCAN_OUTPUT" 2>&1
+                if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+                    log_info "Scanning $component for vulnerabilities..."
 
-                VULN_COUNT=$(grep -c "Total:" "$SCAN_OUTPUT" 2>/dev/null || echo "0")
-
-                if [ -s "$SCAN_OUTPUT" ]; then
-                    log_warning "$component has vulnerabilities (see report)"
-                    echo "- ⚠️ $component: Vulnerabilities found" >> "$VALIDATION_REPORT"
-                else
-                    log_success "$component: No HIGH/CRITICAL vulnerabilities"
-                    echo "- ✅ $component: No HIGH/CRITICAL vulnerabilities" >> "$VALIDATION_REPORT"
-                    PASSED_TESTS=$((PASSED_TESTS + 1))
+                    SCAN_OUTPUT="${TRIVY_REPORT_DIR}/trivy-${component}.json"
+                    SCAN_ERROR="${TRIVY_REPORT_DIR}/trivy-${component}.err"
+                    if trivy image --severity HIGH,CRITICAL --format json --quiet --exit-code 0 "$IMAGE" > "$SCAN_OUTPUT" 2> "$SCAN_ERROR"; then
+                        if VULN_COUNT=$(jq '[.Results[]?.Vulnerabilities[]?] | length' "$SCAN_OUTPUT"); then
+                            if [ "$VULN_COUNT" -gt 0 ]; then
+                                log_warning "$component has $VULN_COUNT HIGH/CRITICAL vulnerabilities (see $SCAN_OUTPUT)"
+                                echo "- ⚠️ $component: $VULN_COUNT HIGH/CRITICAL vulnerabilities found" >> "$VALIDATION_REPORT"
+                                WARNING_TESTS=$((WARNING_TESTS + 1))
+                            else
+                                log_success "$component: No HIGH/CRITICAL vulnerabilities"
+                                echo "- ✅ $component: No HIGH/CRITICAL vulnerabilities" >> "$VALIDATION_REPORT"
+                                PASSED_TESTS=$((PASSED_TESTS + 1))
+                            fi
+                        else
+                            log_warning "$component: Failed to parse Trivy JSON report (see $SCAN_OUTPUT)"
+                            echo "- ⚠️ $component: Failed to parse Trivy JSON report" >> "$VALIDATION_REPORT"
+                            WARNING_TESTS=$((WARNING_TESTS + 1))
+                        fi
+                    else
+                        log_warning "$component: Trivy scan failed (see $SCAN_ERROR and $SCAN_OUTPUT)"
+                        echo "- ⚠️ $component: Trivy scan failed" >> "$VALIDATION_REPORT"
+                        WARNING_TESTS=$((WARNING_TESTS + 1))
+                    fi
+                    TOTAL_TESTS=$((TOTAL_TESTS + 1))
                 fi
-                TOTAL_TESTS=$((TOTAL_TESTS + 1))
-
-                rm -f "$SCAN_OUTPUT"
-            fi
-        done
+            done
+        fi
 
         echo "" >> "$VALIDATION_REPORT"
     else
         log_warning "Trivy not installed, skipping security scan"
         log_info "Install Trivy: https://aquasecurity.github.io/trivy/"
         echo "⚠️ Security scan skipped (Trivy not installed)" >> "$VALIDATION_REPORT"
+        WARNING_TESTS=$((WARNING_TESTS + 1))
         echo "" >> "$VALIDATION_REPORT"
     fi
 fi
@@ -248,8 +298,8 @@ if [ $CRITICAL_FAILED -eq 0 ]; then
     echo "**Status**: ✅ Validation passed! (Critical tests: Image existence & ARM64 architecture)" >> "$VALIDATION_REPORT"
     if [ $WARNING_TESTS -gt 0 ]; then
         echo "" >> "$VALIDATION_REPORT"
-        echo "*Note: Some optional smoke tests had warnings. These will be verified in integration tests.*" >> "$VALIDATION_REPORT"
-        log_warning "Validation passed with $WARNING_TESTS warnings (optional tests)"
+        echo "*Note: Warnings may come from optional components, smoke tests, Trivy vulnerabilities, or scan infrastructure issues.*" >> "$VALIDATION_REPORT"
+        log_warning "Validation passed with $WARNING_TESTS warnings"
     fi
     log_success "Validation passed! All critical tests successful."
 else

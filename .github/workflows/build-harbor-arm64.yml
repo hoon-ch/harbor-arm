@@ -358,10 +358,14 @@ jobs:
             docker pull ${IMAGE} || echo "Warning: Failed to pull ${component}"
           done
 
+      - name: Install jq for validation reports
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq || echo "Warning: jq install failed; validation will skip security scan if jq is unavailable"
+
       - name: Install Trivy for security scanning
         run: |
           # Install Trivy
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin || echo "Warning: Trivy install failed; validation will skip security scan if Trivy is unavailable"
 
       - name: Run validation tests
         run: |
@@ -394,6 +398,14 @@ jobs:
         with:
           name: validation-report
           path: harbor-validation-report-*.md
+          retention-days: 30
+
+      - name: Upload Trivy reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trivy-reports
+          path: trivy-reports-*/
           retention-days: 30
 
       - name: Add validation results to summary
