@@ -1,8 +1,12 @@
+# Reference example only.
+# This file must not be advertised as production-ready until it is covered by
+# scripts/test/e2e-harbor-smoke.sh or an equivalent CI job.
+
 version: '3.8'
 
 services:
   log:
-    image: hoon-ch/harbor-log-arm64:2.13.0
+    image: hoon-ch/harbor-log-arm64:2.15.1
     container_name: harbor-log
     restart: always
     dns_search: .
@@ -27,7 +31,7 @@ services:
       - harbor
 
   registry:
-    image: hoon-ch/harbor-registry-arm64:2.13.0
+    image: hoon-ch/harbor-registry-arm64:2.15.1
     container_name: registry
     restart: always
     cap_drop:
@@ -57,7 +61,7 @@ services:
         tag: "registry"
 
   registryctl:
-    image: hoon-ch/harbor-registryctl-arm64:2.13.0
+    image: hoon-ch/harbor-registryctl-arm64:2.15.1
     container_name: registryctl
     restart: always
     cap_drop:
@@ -87,7 +91,7 @@ services:
         tag: "registryctl"
 
   postgresql:
-    image: hoon-ch/harbor-db-arm64:2.13.0
+    image: hoon-ch/harbor-db-arm64:2.15.1
     container_name: harbor-db
     restart: always
     cap_drop:
@@ -115,7 +119,7 @@ services:
     shm_size: '1gb'
 
   core:
-    image: hoon-ch/harbor-core-arm64:2.13.0
+    image: hoon-ch/harbor-core-arm64:2.15.1
     container_name: harbor-core
     restart: always
     cap_drop:
@@ -154,7 +158,7 @@ services:
         tag: "core"
 
   portal:
-    image: hoon-ch/harbor-portal-arm64:2.13.0
+    image: hoon-ch/harbor-portal-arm64:2.15.1
     container_name: harbor-portal
     restart: always
     cap_drop:
@@ -180,7 +184,7 @@ services:
         tag: "portal"
 
   jobservice:
-    image: hoon-ch/harbor-jobservice-arm64:2.13.0
+    image: hoon-ch/harbor-jobservice-arm64:2.15.1
     container_name: harbor-jobservice
     restart: always
     cap_drop:
@@ -209,7 +213,7 @@ services:
         tag: "jobservice"
 
   redis:
-    image: hoon-ch/harbor-redis-arm64:2.13.0
+    image: hoon-ch/harbor-redis-arm64:2.15.1
     container_name: redis
     restart: always
     cap_drop:
@@ -232,7 +236,7 @@ services:
         tag: "redis"
 
   proxy:
-    image: hoon-ch/harbor-nginx-arm64:2.13.0
+    image: hoon-ch/harbor-nginx-arm64:2.15.1
     container_name: nginx
     restart: always
     cap_drop:

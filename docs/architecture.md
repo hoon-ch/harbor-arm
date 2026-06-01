@@ -31,7 +31,7 @@ harbor-arm/
 │   ├── docker-compose/
 │   │   └── harbor-arm64.yml          # Docker Compose example
 │   ├── kubernetes/
-│   │   ├── deployment.yaml           # Current Kubernetes example manifest
+│   │   ├── helm-deployment.md        # Helm deployment notes for ARM64
 │   │   ├── harbor-production.yaml    # Kubernetes deployment example
 │   │   └── PRODUCTION_DEPLOYMENT.md  # Kubernetes deployment guide
 │   └── helm/

@@ -1,6 +1,10 @@
-# Harbor ARM64 Production Deployment on Kubernetes
+# Harbor ARM64 Kubernetes Reference Deployment
 
-This guide provides step-by-step instructions for deploying Harbor ARM64 on Kubernetes in a production environment.
+> Reference example only. This guide must not be advertised as production-ready
+> until it is covered by `scripts/test/e2e-harbor-smoke.sh` or an equivalent CI
+> job.
+
+This guide provides reference instructions for deploying Harbor ARM64 on Kubernetes.
 
 ## Prerequisites
 
@@ -12,7 +16,7 @@ This guide provides step-by-step instructions for deploying Harbor ARM64 on Kube
 
 ## Architecture Overview
 
-The production deployment includes:
+The reference deployment includes:
 - **High Availability**: Multiple replicas for critical components
 - **Auto-scaling**: HorizontalPodAutoscaler for dynamic scaling
 - **Resource Management**: Resource requests and limits
@@ -416,7 +420,9 @@ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/late
 
 ```bash
 # Update image version in manifest
-sed -i 's/2.15.0/2.15.1/g' harbor-production.yaml
+OLD_VERSION=2.15.1
+NEW_VERSION=2.15.2
+sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" harbor-production.yaml
 
 # Apply changes (rolling update)
 kubectl apply -f harbor-production.yaml

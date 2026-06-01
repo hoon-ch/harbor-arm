@@ -51,17 +51,14 @@ docker pull hoon-ch/harbor-core-arm64:2.15.1
 
 ### Kubernetes Deployment
 
-For Kubernetes deployment experiments:
+Kubernetes examples in this repository are reference material until covered by
+`scripts/test/e2e-harbor-smoke.sh` or an equivalent CI job. Prefer the official
+Harbor Helm chart with ARM64 image overrides, and treat raw manifests as
+testing inputs rather than a supported production path.
 
-```bash
-# Deploy the example configuration
-kubectl apply -f examples/kubernetes/harbor-production.yaml
-
-# Get LoadBalancer IP
-kubectl get svc harbor-nginx -n harbor
-```
-
-**See [Production Deployment Guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md) for complete instructions.**
+Start with the [Helm deployment path](docs/DEPLOYMENT.md#kubernetes-with-helm).
+The [Kubernetes reference guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md)
+is secondary reference material for manifest experiments.
 
 ### Docker Compose
 
@@ -81,7 +78,7 @@ repository deployment docs will be updated as part of the hardening work.
 - [Deployment Guide](docs/DEPLOYMENT.md) - Detailed deployment instructions
 - [Development Guide](docs/DEVELOPMENT.md) - Local building and testing
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
-- [Kubernetes Production Guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Production k8s deployment
+- [Kubernetes Reference Guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Reference k8s deployment
 
 ## Published Components
 

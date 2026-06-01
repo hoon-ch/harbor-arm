@@ -1,5 +1,9 @@
 ---
-# Production-ready Harbor ARM64 Kubernetes Deployment
+# Reference example only.
+# This file must not be advertised as production-ready until it is covered by
+# scripts/test/e2e-harbor-smoke.sh or an equivalent CI job.
+#
+# Harbor ARM64 Kubernetes deployment reference
 # This manifest includes:
 # - Resource requests and limits
 # - Health checks (liveness and readiness probes)

@@ -1,3 +1,8 @@
+# Helm values reference for the official Harbor chart.
+# Validate this file against the target chart version and cluster before using
+# it for production; the repository smoke test currently covers the prepare
+# compose flow, not Helm.
+
 # Harbor Helm Chart values for ARM64 deployment
 # Use this file with official Harbor Helm chart
 
@@ -71,7 +76,7 @@ persistence:
 nginx:
   image:
     repository: hoon-ch/harbor-nginx-arm64
-    tag: 2.13.0
+    tag: 2.15.1
   serviceAccountName: ""
   nodeSelector:
     kubernetes.io/arch: arm64
@@ -81,7 +86,7 @@ nginx:
 portal:
   image:
     repository: hoon-ch/harbor-portal-arm64
-    tag: 2.13.0
+    tag: 2.15.1
   serviceAccountName: ""
   nodeSelector:
     kubernetes.io/arch: arm64
@@ -91,7 +96,7 @@ portal:
 core:
   image:
     repository: hoon-ch/harbor-core-arm64
-    tag: 2.13.0
+    tag: 2.15.1
   serviceAccountName: ""
   replicas: 1
   nodeSelector:
@@ -104,7 +109,7 @@ core:
 jobservice:
   image:
     repository: hoon-ch/harbor-jobservice-arm64
-    tag: 2.13.0
+    tag: 2.15.1
   serviceAccountName: ""
   replicas: 1
   nodeSelector:
@@ -119,11 +124,11 @@ registry:
   registry:
     image:
       repository: hoon-ch/harbor-registry-arm64
-      tag: 2.13.0
+      tag: 2.15.1
   controller:
     image:
       repository: hoon-ch/harbor-registryctl-arm64
-      tag: 2.13.0
+      tag: 2.15.1
   nodeSelector:
     kubernetes.io/arch: arm64
   tolerations: []
@@ -163,7 +168,7 @@ database:
     serviceAccountName: ""
     image:
       repository: hoon-ch/harbor-db-arm64
-      tag: 2.13.0
+      tag: 2.15.1
     nodeSelector:
       kubernetes.io/arch: arm64
     tolerations: []
@@ -191,7 +196,7 @@ redis:
     serviceAccountName: ""
     image:
       repository: hoon-ch/harbor-redis-arm64
-      tag: 2.13.0
+      tag: 2.15.1
     nodeSelector:
       kubernetes.io/arch: arm64
     tolerations: []
