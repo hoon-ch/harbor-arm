@@ -22,16 +22,16 @@ Common issues and solutions for Harbor ARM64 deployment.
 
 ```bash
 # Verify image exists
-docker manifest inspect hoon-ch/harbor-core-arm64:2.14.0
+docker manifest inspect hoon-ch/harbor-core-arm64:2.15.1
 
 # Check available tags
 curl -s https://registry.hub.docker.com/v2/repositories/hoon-ch/harbor-core-arm64/tags | jq '.results[].name'
 
 # Try specific registry
-docker pull docker.io/hoon-ch/harbor-core-arm64:2.14.0
+docker pull docker.io/hoon-ch/harbor-core-arm64:2.15.1
 
 # Or use GHCR
-docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.14.0
+docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.15.1
 ```
 
 ### Wrong Architecture
@@ -47,7 +47,7 @@ docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.14.0
 uname -m  # Should show: aarch64 or arm64
 
 # Verify image architecture
-docker image inspect hoon-ch/harbor-core-arm64:2.14.0 --format '{{.Architecture}}'
+docker image inspect hoon-ch/harbor-core-arm64:2.15.1 --format '{{.Architecture}}'
 # Should show: arm64
 
 # If on x86_64, you need ARM64 hardware or use x86 Harbor images
@@ -86,7 +86,7 @@ docker login
 # Enter your credentials
 
 # Or use GHCR (no rate limits)
-docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.14.0
+docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.15.1
 ```
 
 ### Image Verification Failed
@@ -97,13 +97,13 @@ docker pull ghcr.io/hoon-ch/harbor-core-arm64:2.14.0
 
 ```bash
 # Re-pull image
-docker pull hoon-ch/harbor-core-arm64:2.14.0
+docker pull hoon-ch/harbor-core-arm64:2.15.1
 
 # Check image integrity
-docker image inspect hoon-ch/harbor-core-arm64:2.14.0
+docker image inspect hoon-ch/harbor-core-arm64:2.15.1
 
 # Verify architecture
-docker run --rm hoon-ch/harbor-core-arm64:2.14.0 uname -m
+docker run --rm hoon-ch/harbor-core-arm64:2.15.1 uname -m
 ```
 
 ### Old Image Cached
@@ -140,7 +140,7 @@ docker logs harbor-core
 docker inspect harbor-core --format='{{.State.ExitCode}}'
 
 # Try running interactively
-docker run -it hoon-ch/harbor-core-arm64:2.14.0 /bin/sh
+docker run -it hoon-ch/harbor-core-arm64:2.15.1 /bin/sh
 ```
 
 **Common Causes**:
@@ -152,7 +152,7 @@ docker run -it hoon-ch/harbor-core-arm64:2.14.0 /bin/sh
 docker run -d \
   -e DATABASE_TYPE=postgresql \
   -e POSTGRESQL_HOST=harbor-db \
-  hoon-ch/harbor-core-arm64:2.14.0
+  hoon-ch/harbor-core-arm64:2.15.1
 ```
 
 2. **Database not ready**:
@@ -162,7 +162,7 @@ docker run -d \
 docker run -d \
   --name harbor-core \
   --restart on-failure:3 \
-  hoon-ch/harbor-core-arm64:2.14.0
+  hoon-ch/harbor-core-arm64:2.15.1
 ```
 
 3. **Volume mount errors**:
@@ -188,7 +188,7 @@ sudo lsof -i :443
 sudo kill -9 <PID>
 
 # Or use different ports
-docker run -p 8080:8080 -p 8443:8443 hoon-ch/harbor-nginx-arm64:2.14.0
+docker run -p 8080:8080 -p 8443:8443 hoon-ch/harbor-nginx-arm64:2.15.1
 ```
 
 ### Network Issues

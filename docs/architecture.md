@@ -136,8 +136,8 @@ The CI/CD pipeline consists of 7 main jobs:
 - **Internal names**: `{username}/{component}:{version}`
 
 Examples:
-- `hoon-ch/harbor-core-arm64:2.14.0` (pushed)
-- `hoon-ch/harbor-core:2.14.0` (internal/testing)
+- `hoon-ch/harbor-core-arm64:2.15.1` (pushed)
+- `hoon-ch/harbor-core:2.15.1` (internal/testing)
 
 ## Key Design Decisions
 
@@ -172,10 +172,10 @@ Users can build locally using:
 
 ```bash
 # Build Harbor ARM64 images locally
-./scripts/build-local.sh v2.14.0
+./scripts/build-local.sh v2.15.1
 
-# Push to your registry
-./scripts/push-images.sh v2.14.0 your-username
+# Push to Docker Hub
+DOCKERHUB_USERNAME=your-username ./scripts/push-images.sh 2.15.1
 ```
 
 ## Future Improvements

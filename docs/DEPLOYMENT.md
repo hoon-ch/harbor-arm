@@ -32,7 +32,7 @@ docker run -d \
   --name harbor-redis \
   --network harbor \
   --restart always \
-  hoon-ch/harbor-redis-arm64:2.14.0
+  hoon-ch/harbor-redis-arm64:2.15.1
 
 # Run PostgreSQL
 docker run -d \
@@ -41,7 +41,7 @@ docker run -d \
   --restart always \
   -e POSTGRES_PASSWORD=rootpassword \
   -v /data/harbor/database:/var/lib/postgresql/data \
-  hoon-ch/harbor-db-arm64:2.14.0
+  hoon-ch/harbor-db-arm64:2.15.1
 
 # Run Core
 docker run -d \
@@ -57,7 +57,7 @@ docker run -d \
   -e REDIS_HOST=harbor-redis \
   -e REDIS_PORT=6379 \
   -v /data/harbor/core:/data \
-  hoon-ch/harbor-core-arm64:2.14.0
+  hoon-ch/harbor-core-arm64:2.15.1
 
 # Run Registry
 docker run -d \
@@ -65,14 +65,14 @@ docker run -d \
   --network harbor \
   --restart always \
   -v /data/harbor/registry:/storage \
-  hoon-ch/harbor-registry-arm64:2.14.0
+  hoon-ch/harbor-registry-arm64:2.15.1
 
 # Run Portal
 docker run -d \
   --name harbor-portal \
   --network harbor \
   --restart always \
-  hoon-ch/harbor-portal-arm64:2.14.0
+  hoon-ch/harbor-portal-arm64:2.15.1
 
 # Run Nginx
 docker run -d \
@@ -81,7 +81,7 @@ docker run -d \
   --restart always \
   -p 80:8080 \
   -p 443:8443 \
-  hoon-ch/harbor-nginx-arm64:2.14.0
+  hoon-ch/harbor-nginx-arm64:2.15.1
 ```
 
 ### Verification
@@ -139,14 +139,14 @@ version: '3.8'
 
 services:
   redis:
-    image: hoon-ch/harbor-redis-arm64:2.14.0
+    image: hoon-ch/harbor-redis-arm64:2.15.1
     container_name: harbor-redis
     restart: always
     networks:
       - harbor
 
   database:
-    image: hoon-ch/harbor-db-arm64:2.14.0
+    image: hoon-ch/harbor-db-arm64:2.15.1
     container_name: harbor-db
     restart: always
     environment:
@@ -157,7 +157,7 @@ services:
       - harbor
 
   core:
-    image: hoon-ch/harbor-core-arm64:2.14.0
+    image: hoon-ch/harbor-core-arm64:2.15.1
     container_name: harbor-core
     restart: always
     environment:
@@ -178,7 +178,7 @@ services:
       - redis
 
   jobservice:
-    image: hoon-ch/harbor-jobservice-arm64:2.14.0
+    image: hoon-ch/harbor-jobservice-arm64:2.15.1
     container_name: harbor-jobservice
     restart: always
     environment:
@@ -193,7 +193,7 @@ services:
       - registry
 
   registry:
-    image: hoon-ch/harbor-registry-arm64:2.14.0
+    image: hoon-ch/harbor-registry-arm64:2.15.1
     container_name: harbor-registry
     restart: always
     volumes:
@@ -202,7 +202,7 @@ services:
       - harbor
 
   registryctl:
-    image: hoon-ch/harbor-registryctl-arm64:2.14.0
+    image: hoon-ch/harbor-registryctl-arm64:2.15.1
     container_name: harbor-registryctl
     restart: always
     environment:
@@ -216,7 +216,7 @@ services:
       - registry
 
   portal:
-    image: hoon-ch/harbor-portal-arm64:2.14.0
+    image: hoon-ch/harbor-portal-arm64:2.15.1
     container_name: harbor-portal
     restart: always
     networks:
@@ -225,7 +225,7 @@ services:
       - core
 
   nginx:
-    image: hoon-ch/harbor-nginx-arm64:2.14.0
+    image: hoon-ch/harbor-nginx-arm64:2.15.1
     container_name: harbor-nginx
     restart: always
     ports:
@@ -261,7 +261,7 @@ DB_PASSWORD=securepassword123
 HARBOR_ADMIN_PASSWORD=Harbor12345
 
 # Version
-HARBOR_VERSION=2.14.0
+HARBOR_VERSION=2.15.1
 ```
 
 ## Kubernetes with Helm
@@ -317,49 +317,49 @@ harborAdminPassword: "Harbor12345"
 core:
   image:
     repository: hoon-ch/harbor-core-arm64
-    tag: "2.14.0"
+    tag: "2.15.1"
 
 jobservice:
   image:
     repository: hoon-ch/harbor-jobservice-arm64
-    tag: "2.14.0"
+    tag: "2.15.1"
 
 registry:
   registry:
     image:
       repository: hoon-ch/harbor-registry-arm64
-      tag: "2.14.0"
+      tag: "2.15.1"
   controller:
     image:
       repository: hoon-ch/harbor-registryctl-arm64
-      tag: "2.14.0"
+      tag: "2.15.1"
 
 portal:
   image:
     repository: hoon-ch/harbor-portal-arm64
-    tag: "2.14.0"
+    tag: "2.15.1"
 
 database:
   internal:
     image:
       repository: hoon-ch/harbor-db-arm64
-      tag: "2.14.0"
+      tag: "2.15.1"
 
 redis:
   internal:
     image:
       repository: hoon-ch/harbor-redis-arm64
-      tag: "2.14.0"
+      tag: "2.15.1"
 
 nginx:
   image:
     repository: hoon-ch/harbor-nginx-arm64
-    tag: "2.14.0"
+    tag: "2.15.1"
 
 exporter:
   image:
     repository: hoon-ch/harbor-exporter-arm64
-    tag: "2.14.0"
+    tag: "2.15.1"
 
 # NodeSelector for ARM64
 nodeSelector:

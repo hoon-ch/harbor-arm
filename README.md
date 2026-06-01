@@ -11,21 +11,21 @@ Automated builds of [Harbor](https://github.com/goharbor/harbor) for ARM64 archi
 This repository automatically tracks new releases of Harbor and builds all components for ARM64 architecture (linux/arm64). Built images are published to both Docker Hub and GitHub Container Registry.
 
 Perfect for running Harbor on:
-- 🍎 Apple Silicon Macs (M1/M2/M3/M4)
-- ☁️ AWS Graviton instances (20-40% cost savings)
-- 🔷 Azure ARM-based VMs
-- 🍊 Oracle Ampere A1 instances
-- 🍓 Raspberry Pi 4/5
-- 📱 ARM-based Kubernetes clusters
+- Apple Silicon Macs (M1/M2/M3/M4)
+- AWS Graviton instances (20-40% cost savings)
+- Azure ARM-based VMs
+- Oracle Ampere A1 instances
+- Raspberry Pi 4/5
+- ARM-based Kubernetes clusters
 
 ## Features
 
-- ✅ **Automated Release Detection**: Daily checks for new Harbor releases
-- ✅ **ARM64 Native Builds**: Built on ARM64 runners for optimal performance
-- ✅ **All Components Included**: Complete Harbor deployment
-- ✅ **Multi-Registry Support**: Docker Hub + GitHub Container Registry
-- ✅ **Production Ready**: Comprehensive testing and validation
-- ✅ **Cost Efficient**: 20-40% cheaper cloud instances
+- **Automated Release Detection**: Daily checks for new Harbor releases
+- **ARM64 Native Builds**: Built on ARM64 runners for optimal performance
+- **All Components Included**: Complete Harbor deployment
+- **Multi-Registry Support**: Docker Hub + GitHub Container Registry
+- **Production Ready**: Comprehensive testing and validation
+- **Cost Efficient**: 20-40% cheaper cloud instances
 
 ## Quick Start
 
@@ -36,7 +36,7 @@ Perfect for running Harbor on:
 docker pull hoon-ch/harbor-core-arm64:latest
 
 # Specific version
-docker pull hoon-ch/harbor-core-arm64:2.14.0
+docker pull hoon-ch/harbor-core-arm64:2.15.1
 
 # All components available with -arm64 suffix:
 # prepare, core, db, jobservice, log, nginx, portal,
@@ -72,11 +72,11 @@ docker-compose -f harbor-arm64.yml up -d
 
 ## Documentation
 
-- 📖 [Architecture Overview](docs/architecture.md) - Build pipeline and design decisions
-- 🚀 [Deployment Guide](docs/DEPLOYMENT.md) - Detailed deployment instructions
-- 🔧 [Development Guide](docs/DEVELOPMENT.md) - Local building and testing
-- 🐛 [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
-- ☸️ [Kubernetes Production Guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Production k8s deployment
+- [Architecture Overview](docs/architecture.md) - Build pipeline and design decisions
+- [Deployment Guide](docs/DEPLOYMENT.md) - Detailed deployment instructions
+- [Development Guide](docs/DEVELOPMENT.md) - Local building and testing
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Kubernetes Production Guide](examples/kubernetes/PRODUCTION_DEPLOYMENT.md) - Production k8s deployment
 
 ## Supported Components
 
@@ -100,7 +100,7 @@ All Harbor components are built for ARM64:
 
 Check [built_versions.txt](built_versions.txt) for all available versions.
 
-Latest: **v2.14.0**
+Latest: **v2.15.1**
 
 ## How It Works
 
@@ -119,7 +119,7 @@ To build a specific version:
 
 ```bash
 # Using GitHub CLI
-gh workflow run build-harbor-arm64.yml -f version=v2.14.0
+gh workflow run build-harbor-arm64.yml -f version=v2.15.1
 
 # Or via GitHub Actions UI:
 # https://github.com/hoon-ch/harbor-arm/actions
@@ -142,7 +142,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) fo
 
 ### Benchmarks
 
-See [Architecture Guide](docs/architecture.md#performance-benchmarks) for detailed benchmark results.
+See [Development Guide](docs/DEVELOPMENT.md#benchmarks) for benchmark commands.
 
 ## Requirements
 
@@ -157,7 +157,7 @@ See [Architecture Guide](docs/architecture.md#performance-benchmarks) for detail
 - All images are built from official Harbor source code
 - Trivy security scanning in CI/CD pipeline
 - Regular updates following Harbor releases
-- See [SECURITY.md](SECURITY.md) for security policy
+- Report security issues through [GitHub Issues](https://github.com/hoon-ch/harbor-arm/issues) unless a private disclosure path is added.
 
 ## License
 
@@ -174,7 +174,3 @@ This project follows the same Apache 2.0 license as Harbor.
 - [Harbor](https://github.com/goharbor/harbor) - The Cloud Native Registry
 - [Distribution](https://github.com/distribution/distribution) - Docker Registry implementation
 - All contributors to the Harbor project
-
----
-
-**Made with ❤️ for the ARM64 community**

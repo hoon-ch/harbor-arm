@@ -55,7 +55,7 @@ docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 ```bash
 # Test build script
-./scripts/build-local.sh v2.11.0
+./scripts/build-local.sh v2.15.1
 
 # Test a specific component
 cd harbor/make/photon/core

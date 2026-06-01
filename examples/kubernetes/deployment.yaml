@@ -190,5 +190,5 @@ kubectl describe pod <pod-name> -n harbor
 수동 빌드가 필요한 경우:
 ```bash
 # GitHub Actions에서 수동 트리거
-gh workflow run check-and-build.yml --field version=v2.14.0
+gh workflow run build-harbor-arm64.yml --field version=v2.15.1
 ```

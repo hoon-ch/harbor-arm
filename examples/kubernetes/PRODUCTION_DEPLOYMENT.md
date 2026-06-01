@@ -416,7 +416,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/late
 
 ```bash
 # Update image version in manifest
-sed -i 's/2.14.0/2.15.0/g' harbor-production.yaml
+sed -i 's/2.15.0/2.15.1/g' harbor-production.yaml
 
 # Apply changes (rolling update)
 kubectl apply -f harbor-production.yaml

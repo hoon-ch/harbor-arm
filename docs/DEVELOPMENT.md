@@ -25,7 +25,7 @@ cd harbor-arm
 
 ```bash
 # Set version to build
-VERSION=v2.14.0
+VERSION=v2.15.1
 
 # Run local build script
 ./scripts/build-local.sh $VERSION
@@ -115,7 +115,7 @@ Builds Harbor base images:
 - etc.
 
 ```bash
-./scripts/build/build-base-images.sh v2.14.0 myusername
+./scripts/build/build-base-images.sh v2.15.1 myusername
 ```
 
 #### 2. build-registry-binary.sh
@@ -134,7 +134,7 @@ Patches Harbor build files:
 - Adds `--pull=false` to prevent pulling amd64 images
 
 ```bash
-./scripts/build/patch-harbor-build.sh v2.14.0
+./scripts/build/patch-harbor-build.sh v2.15.1
 ```
 
 #### 4. build-harbor-components.sh
@@ -142,7 +142,7 @@ Patches Harbor build files:
 Builds all Harbor components:
 
 ```bash
-./scripts/build/build-harbor-components.sh v2.14.0 myusername
+./scripts/build/build-harbor-components.sh v2.15.1 myusername
 ```
 
 #### 5. tag-and-push-images.sh
@@ -150,7 +150,7 @@ Builds all Harbor components:
 Tags and pushes images to registries:
 
 ```bash
-./scripts/build/tag-and-push-images.sh v2.14.0 myusername github-org
+./scripts/build/tag-and-push-images.sh v2.15.1 myusername github-org
 ```
 
 ### Common Utilities
@@ -185,10 +185,10 @@ docker_push_retry myimage:tag
 Tests image existence, architecture, and basic functionality:
 
 ```bash
-./scripts/test/validate-images.sh v2.14.0 myusername
+./scripts/test/validate-images.sh v2.15.1 myusername
 
 # With full security scan
-./scripts/test/validate-images.sh v2.14.0 myusername --full
+./scripts/test/validate-images.sh v2.15.1 myusername --full
 ```
 
 ### Integration Tests
@@ -196,7 +196,7 @@ Tests image existence, architecture, and basic functionality:
 Tests container startup and basic functionality:
 
 ```bash
-./scripts/test/integration-test-simple.sh v2.14.0 myusername
+./scripts/test/integration-test-simple.sh v2.15.1 myusername
 ```
 
 ### API Tests
@@ -204,7 +204,7 @@ Tests container startup and basic functionality:
 Tests API components:
 
 ```bash
-./scripts/test/api-test-simple.sh v2.14.0 myusername http://localhost:8080
+./scripts/test/api-test-simple.sh v2.15.1 myusername http://localhost:8080
 ```
 
 ### Benchmarks
@@ -212,7 +212,7 @@ Tests API components:
 Measures performance:
 
 ```bash
-./scripts/test/benchmark-simple.sh v2.14.0 myusername http://localhost:8080
+./scripts/test/benchmark-simple.sh v2.15.1 myusername http://localhost:8080
 ```
 
 ## CI/CD Pipeline
@@ -252,10 +252,10 @@ runs-on: ubuntu-24.04-arm
 
 ```bash
 # Using GitHub CLI
-gh workflow run build-harbor-arm64.yml -f version=v2.14.0
+gh workflow run build-harbor-arm64.yml -f version=v2.15.1
 
 # Or via GitHub UI
-# https://github.com/your-repo/actions
+# https://github.com/hoon-ch/harbor-arm/actions
 ```
 
 ## Contributing
@@ -283,14 +283,14 @@ git checkout -b feature/my-improvement
 vim scripts/build/build-harbor-components.sh
 
 # Test locally
-./scripts/build-local.sh v2.14.0
+./scripts/build-local.sh v2.15.1
 ```
 
 4. **Run tests**
 
 ```bash
 # Validate changes
-./scripts/test/validate-images.sh v2.14.0 $(whoami)
+./scripts/test/validate-images.sh v2.15.1 $(whoami)
 ```
 
 5. **Commit changes**
@@ -347,7 +347,7 @@ shellcheck scripts/**/*.sh
 set -x  # Enable command tracing
 
 # Or run with
-bash -x scripts/build-local.sh v2.14.0
+bash -x scripts/build-local.sh v2.15.1
 ```
 
 ### Check Build Logs
@@ -457,7 +457,7 @@ docker builder prune -af
 docker rmi $(docker images -q hoon-ch/harbor-*)
 
 # Retry build
-./scripts/build-local.sh v2.14.0
+./scripts/build-local.sh v2.15.1
 ```
 
 ### Go Module Issues
