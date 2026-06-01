@@ -144,7 +144,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) fo
 - All images are built from official Harbor source code
 - Trivy security scanning in CI/CD pipeline
 - Regular updates following Harbor releases
-- Report security issues through [GitHub Issues](https://github.com/hoon-ch/harbor-arm/issues) unless a private disclosure path is added.
+- Report suspected vulnerabilities through SECURITY.md. Do not disclose image or supply-chain vulnerabilities in a public issue before coordinated disclosure.
 
 ## License
 
