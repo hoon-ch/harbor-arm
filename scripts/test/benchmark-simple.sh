@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Simplified Harbor ARM64 Benchmark Script
@@ -49,9 +49,9 @@ echo "" >> "$REPORT_FILE"
 echo "| Component | Size (MB) | Pull Time (s) |" >> "$REPORT_FILE"
 echo "|-----------|-----------|---------------|" >> "$REPORT_FILE"
 
-COMPONENTS=(core db nginx portal redis registry)
+BENCHMARK_IMAGES=(core db nginx portal redis registry)
 
-for component in "${COMPONENTS[@]}"; do
+for component in "${BENCHMARK_IMAGES[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
 
     # Remove image if exists to measure pull time
@@ -131,7 +131,7 @@ end_timer
 echo "## Summary" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 echo "- **Architecture**: $(uname -m)" >> "$REPORT_FILE"
-echo "- **Total Images**: ${#COMPONENTS[@]}" >> "$REPORT_FILE"
+echo "- **Total Images**: ${#BENCHMARK_IMAGES[@]}" >> "$REPORT_FILE"
 echo "- **Benchmark Duration**: Check execution time above" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 echo "**Status**: ✅ Basic benchmarks completed" >> "$REPORT_FILE"

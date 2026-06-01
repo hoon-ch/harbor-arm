@@ -191,15 +191,20 @@ Images are pushed to both:
 
 ## Local Development
 
-Users can build locally using:
+Users can build the local component subset using:
 
 ```bash
-# Build Harbor ARM64 images locally
+# Build the LOCAL_BUILD_COMPONENTS subset locally
 ./scripts/build-local.sh v2.15.1
 
-# Push to Docker Hub
+# Push the locally built subset to Docker Hub
 DOCKERHUB_USERNAME=your-username ./scripts/push-images.sh 2.15.1
 ```
+
+`build-local.sh` and `push-images.sh` use `LOCAL_BUILD_COMPONENTS`, which
+currently excludes `exporter`. The full published matrix in `HARBOR_COMPONENTS`,
+including `exporter`, is built and pushed by the CI build scripts under
+`scripts/build/`.
 
 ## Future Improvements
 

@@ -1,12 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Common utility functions for Harbor ARM64 build scripts
 
 # Load configuration
 SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "${SCRIPT_DIR_COMMON}/config.sh" ]; then
-    source "${SCRIPT_DIR_COMMON}/config.sh"
+fail_common_config_load() {
+    case $- in
+        *i*) return 1 2>/dev/null || exit 1 ;;
+        *) exit 1 ;;
+    esac
+}
+
+if [ ! -f "${SCRIPT_DIR_COMMON}/config.sh" ]; then
+    echo "Harbor ARM64 scripts require ${SCRIPT_DIR_COMMON}/config.sh." >&2
+    fail_common_config_load || return 1 2>/dev/null || exit 1
 fi
+
+source "${SCRIPT_DIR_COMMON}/config.sh" || {
+    fail_common_config_load || return 1 2>/dev/null || exit 1
+}
 
 # Color codes for output
 RED='\033[0;31m'

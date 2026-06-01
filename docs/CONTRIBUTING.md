@@ -92,7 +92,8 @@ docker buildx build --platform linux/arm64 -f Dockerfile .
 
 ### Shell Scripts
 
-- Use `#!/bin/bash` shebang
+- Use `#!/usr/bin/env bash` for repo scripts that source shared
+  `scripts/common.sh` or `scripts/config.sh` helpers
 - Use `set -e` for error handling
 - Add comments for complex logic
 - Use meaningful variable names

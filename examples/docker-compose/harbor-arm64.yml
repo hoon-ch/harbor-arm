@@ -264,45 +264,6 @@ services:
         syslog-address: "tcp://localhost:1514"
         tag: "proxy"
 
-  trivy-adapter:
-    container_name: trivy-adapter
-    image: hoon-ch/harbor-trivy-adapter-arm64:2.13.0
-    restart: always
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETGID
-      - SETUID
-    dns_search: .
-    networks:
-      - harbor
-    volumes:
-      - type: bind
-        source: /data/trivy-adapter/trivy
-        target: /home/scanner/.cache/trivy
-      - type: bind
-        source: /data/trivy-adapter/reports
-        target: /home/scanner/.cache/reports
-      - type: bind
-        source: ./common/config/shared/trust-certificates
-        target: /harbor_cust_cert
-    logging:
-      driver: "syslog"
-      options:
-        syslog-address: "tcp://localhost:1514"
-        tag: "trivy-adapter"
-    environment:
-      SCANNER_TRIVY_CACHE_DIR: "/home/scanner/.cache/trivy"
-      SCANNER_TRIVY_REPORTS_DIR: "/home/scanner/.cache/reports"
-      SCANNER_REDIS_URL: "redis://redis:6379/5"
-      SCANNER_STORE_REDIS_URL: "redis://redis:6379/5"
-      SCANNER_JOB_QUEUE_REDIS_URL: "redis://redis:6379/5"
-    depends_on:
-      - redis
-      - log
-
 networks:
   harbor:
     external: false

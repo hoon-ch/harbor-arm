@@ -1,11 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Harbor ARM64 Local Build Script
 # This script builds Harbor components for ARM64 architecture locally
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/config.sh"
+
 HARBOR_VERSION="${1:-latest}"
-COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl trivy-adapter)
+COMPONENTS=("${LOCAL_BUILD_COMPONENTS[@]}")
 HARBOR_REPO="https://github.com/goharbor/harbor.git"
 BUILD_DIR="./harbor"
 
@@ -98,7 +101,7 @@ build_component() {
     echo "✅ Successfully built $component"
 }
 
-# Build all components
+# Build local component subset
 failed_components=()
 for component in "${COMPONENTS[@]}"; do
     if ! build_component "$component"; then
@@ -116,7 +119,7 @@ echo "Platform: linux/arm64"
 echo ""
 
 if [ ${#failed_components[@]} -eq 0 ]; then
-    echo "✅ All components built successfully!"
+    echo "✅ Local component subset built successfully!"
 else
     echo "⚠️  Some components failed to build:"
     for component in "${failed_components[@]}"; do
@@ -129,4 +132,4 @@ echo ""
 echo "To list built images:"
 echo "  docker images | grep harbor-.*-arm64"
 echo ""
-echo "To push to registry, use scripts/push-images.sh"
+echo "To push this local component subset to a registry, use scripts/push-images.sh"

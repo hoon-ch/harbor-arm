@@ -43,11 +43,6 @@ portal:
     repository: hoon-ch/harbor-portal-arm64
     tag: 2.13.0
 
-trivy:
-  image:
-    repository: hoon-ch/harbor-trivy-adapter-arm64
-    tag: 2.13.0
-
 database:
   internal:
     image:

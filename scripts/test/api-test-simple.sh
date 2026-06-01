@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Simplified Harbor ARM64 API Test
@@ -49,11 +49,11 @@ echo "" >> "$REPORT_FILE"
 # Test that images are available and properly tagged
 log_info "Verifying Harbor images are available for API services..."
 
-API_COMPONENTS=(core jobservice nginx portal)
+API_SERVICE_IMAGES=(core jobservice nginx portal)
 PASSED=0
 TOTAL=0
 
-for component in "${API_COMPONENTS[@]}"; do
+for component in "${API_SERVICE_IMAGES[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then

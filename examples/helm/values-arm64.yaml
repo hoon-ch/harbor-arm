@@ -138,10 +138,7 @@ registry:
     #   bucket: harbor-registry
 
 trivy:
-  enabled: true
-  image:
-    repository: hoon-ch/harbor-trivy-adapter-arm64
-    tag: 2.13.0
+  enabled: false
   serviceAccountName: ""
   replicas: 1
   vulnType: "os,library"

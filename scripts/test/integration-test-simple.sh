@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Simplified Harbor ARM64 Integration Test
@@ -47,12 +47,10 @@ FAILED_TESTS=0
 # Test 1: Image Availability
 log_section "Test 1: Image Availability Check"
 
-COMPONENTS=(prepare core db jobservice log nginx portal redis registry registryctl exporter)
-
 echo "### Image Availability" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
-for component in "${COMPONENTS[@]}"; do
+for component in "${HARBOR_COMPONENTS[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -75,7 +73,7 @@ log_section "Test 2: Architecture Verification"
 echo "### Architecture Verification" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
-for component in "${COMPONENTS[@]}"; do
+for component in "${HARBOR_COMPONENTS[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -139,7 +137,7 @@ echo "| Component | Size (MB) |" >> "$REPORT_FILE"
 echo "|-----------|-----------|" >> "$REPORT_FILE"
 
 TOTAL_SIZE=0
-for component in "${COMPONENTS[@]}"; do
+for component in "${HARBOR_COMPONENTS[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
 
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
