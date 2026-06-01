@@ -41,6 +41,16 @@ jobs:
             done | sort -V | tail -n 1
           }
 
+          get_arm64_manifest_digest() {
+            jq -r '
+              if type == "array" then
+                map(select(.Descriptor.platform.architecture == "arm64" and .Descriptor.platform.os == "linux"))[0].Descriptor.digest // empty
+              else
+                .Descriptor.digest // empty
+              end
+            ' "$1"
+          }
+
           HARBOR_IMAGE_VERSION=$(get_latest_harbor_image_version)
 
           if ! grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "${HARBOR_IMAGE_VERSION}"; then
@@ -80,11 +90,11 @@ jobs:
             LATEST_IMAGE="ghcr.io/${{ github.repository_owner }}/harbor-core-arm64:latest"
 
             if docker manifest inspect --verbose "${VERSION_IMAGE}" > version-manifest.json 2>/dev/null; then
-              version_digest=$(jq -r '.Descriptor.digest // empty' version-manifest.json)
+              version_digest=$(get_arm64_manifest_digest version-manifest.json)
               latest_digest=""
 
               if docker manifest inspect --verbose "${LATEST_IMAGE}" > latest-manifest.json 2>/dev/null; then
-                latest_digest=$(jq -r '.Descriptor.digest // empty' latest-manifest.json)
+                latest_digest=$(get_arm64_manifest_digest latest-manifest.json)
               fi
 
               if [ -n "${version_digest}" ] && [ "${version_digest}" = "${latest_digest}" ]; then
