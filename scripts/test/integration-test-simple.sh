@@ -102,7 +102,7 @@ echo "" >> "$REPORT_FILE"
 log_info "Testing Redis container (only component that runs standalone)..."
 
 # Test Redis
-REDIS_IMAGE="${DOCKER_USERNAME}/redis-photon:${VERSION_TAG}"
+REDIS_IMAGE="${DOCKER_USERNAME}/valkey-photon:${VERSION_TAG}"
 if docker run -d --name redis-test-basic --rm "$REDIS_IMAGE" redis-server >/dev/null 2>&1; then
     sleep 3
 

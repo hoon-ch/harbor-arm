@@ -50,7 +50,7 @@ echo "" >> "$REPORT_FILE"
 echo "| Component | Size (MB) | Pull Time (s) |" >> "$REPORT_FILE"
 echo "|-----------|-----------|---------------|" >> "$REPORT_FILE"
 
-BENCHMARK_IMAGES=(core db nginx portal redis registry)
+BENCHMARK_IMAGES=(core db nginx portal valkey registry)
 
 for component in "${BENCHMARK_IMAGES[@]}"; do
     IMAGE="${DOCKER_USERNAME}/harbor-${component}-arm64:${VERSION_TAG}"
@@ -83,7 +83,7 @@ log_section "Benchmark 2: Container Startup Time"
 echo "### Container Startup Time" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
-REDIS_IMAGE="${DOCKER_USERNAME}/redis-photon:${VERSION_TAG}"
+REDIS_IMAGE="${DOCKER_USERNAME}/valkey-photon:${VERSION_TAG}"
 log_info "Testing Redis container startup time..."
 
 START=$(date +%s.%N)

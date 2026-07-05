@@ -84,7 +84,7 @@ replacements = {
     "nginx-photon": "harbor-nginx-arm64",
     "harbor-log": "harbor-log-arm64",
     "harbor-db": "harbor-db-arm64",
-    "redis-photon": "harbor-redis-arm64",
+    "valkey-photon": "harbor-valkey-arm64",
     "registry-photon": "harbor-registry-arm64",
     "harbor-registryctl": "harbor-registryctl-arm64",
     "harbor-exporter": "harbor-exporter-arm64",

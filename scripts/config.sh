@@ -19,7 +19,7 @@ HARBOR_COMPONENTS=(
     "nginx"
     "log"
     "db"
-    "redis"
+    "valkey"
     "registry"
     "registryctl"
     "exporter"
@@ -37,7 +37,7 @@ LOCAL_BUILD_COMPONENTS=(
     "nginx"
     "log"
     "db"
-    "redis"
+    "valkey"
     "registry"
     "registryctl"
 )
@@ -54,14 +54,14 @@ declare -A HARBOR_IMAGE_NAMES=(
     ["log"]="harbor-log"
     ["nginx"]="nginx-photon"
     ["portal"]="harbor-portal"
-    ["redis"]="redis-photon"
+    ["valkey"]="valkey-photon"
     ["registry"]="registry-photon"
     ["registryctl"]="harbor-registryctl"
     ["exporter"]="harbor-exporter"
 )
 
 # Build configuration
-BUILD_CONFIG_NODE_VERSION="16.18.0"
+BUILD_CONFIG_NODE_VERSION="22.22.3"
 BUILD_CONFIG_HARBOR_BASE_NAMESPACE="goharbor"
 
 # Build flags
@@ -76,7 +76,7 @@ IMAGE_SUFFIX="-arm64"
 
 # Testable components (can start standalone)
 TESTABLE_COMPONENTS=(
-    "redis"
+    "valkey"
     "db"
 )
 
