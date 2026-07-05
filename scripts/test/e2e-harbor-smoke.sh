@@ -81,6 +81,13 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
+# prepare runs as root inside the container and writes docker-compose.yml (and
+# the generated config tree) owned by root. Reclaim ownership so the host-side
+# rewrite below and the cleanup trap can modify/remove these files.
+if command -v sudo >/dev/null 2>&1; then
+    sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR" || true
+fi
+
 log_info "Rewriting generated compose file to use rebuilt ARM64 images"
 python3 - "$COMPOSE_FILE" "$DOCKER_USERNAME" "$VERSION_TAG" <<'PY'
 import re
