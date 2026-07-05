@@ -119,6 +119,16 @@ for source, target in replacements.items():
         text,
     )
 
+# Drop Harbor's per-service syslog logging driver. It points every container at
+# harbor-log's rsyslog on tcp://localhost:1514, which fails on this single-host
+# smoke runner (localhost resolves to IPv6 ::1, rsyslog listens on IPv4 only),
+# aborting container startup. Default json-file logging is fine for a smoke test.
+text = re.sub(
+    r'\n[ ]*logging:\n[ ]*driver: "syslog"\n[ ]*options:\n[ ]*syslog-address: "[^"]*"\n[ ]*tag: "[^"]*"',
+    "",
+    text,
+)
+
 compose.write_text(text)
 PY
 
