@@ -19,7 +19,7 @@ VERSION_TAG=$(clean_version_tag "$VERSION")
 WORK_DIR="$(mktemp -d)"
 COMPOSE_FILE="${WORK_DIR}/docker-compose.yml"
 
-# shellcheck disable=SC2329  # invoked indirectly via `trap cleanup EXIT`
+# shellcheck disable=SC2317,SC2329  # cleanup runs indirectly via `trap cleanup EXIT`
 cleanup() {
     if [ -f "$COMPOSE_FILE" ]; then
         docker compose -f "$COMPOSE_FILE" down -v >/dev/null 2>&1 || true
