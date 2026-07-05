@@ -50,6 +50,15 @@ jobservice:
     - STD_OUTPUT
     - FILE
   logger_sweeper_duration: 1
+notification:
+  webhook_job_max_retry: 3
+  webhook_job_http_client_timeout: 3
+log:
+  level: info
+  local:
+    rotate_count: 50
+    rotate_size: 200M
+    location: ${WORK_DIR}/logs
 EOF
 
 log_info "Generating Harbor configuration with prepare image"
