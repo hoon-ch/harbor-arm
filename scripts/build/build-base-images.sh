@@ -58,6 +58,15 @@ while IFS= read -r base_dockerfile; do
         log_info "Patched $base_dockerfile to use multi-arch photon:5.0"
         patched_files=$((patched_files + 1))
     fi
+
+    # Official multi-arch photon:5.0 has no pinned photon-snapshot repo (that file
+    # exists only on goharbor's custom photon), so the db image's snapshot cleanup
+    # aborts with "No such file or directory". Make that edit tolerant of a missing
+    # file instead of failing the build.
+    if grep -q "photon-snapshot.repo" "$base_dockerfile" && ! grep -q "photon-snapshot.repo 2>/dev/null" "$base_dockerfile"; then
+        sed -i "s#sed -i '/^snapshot/d' /etc/yum.repos.d/photon-snapshot.repo#& 2>/dev/null || true#" "$base_dockerfile"
+        log_info "Made photon-snapshot repo cleanup tolerant in $base_dockerfile"
+    fi
 done < <(find make/photon -name "Dockerfile.base" -type f 2>/dev/null)
 
 if [ "$patched_files" -eq 0 ]; then
