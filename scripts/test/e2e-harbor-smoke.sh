@@ -44,6 +44,12 @@ harbor_admin_password: Harbor12345
 database:
   password: root123
 data_volume: ${WORK_DIR}/data
+jobservice:
+  max_job_workers: 10
+  job_loggers:
+    - STD_OUTPUT
+    - FILE
+  logger_sweeper_duration: 1
 EOF
 
 log_info "Generating Harbor configuration with prepare image"
