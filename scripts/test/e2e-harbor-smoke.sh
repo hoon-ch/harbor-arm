@@ -114,7 +114,7 @@ replacements = {
 
 for source, target in replacements.items():
     text = re.sub(
-        rf"goharbor/{re.escape(source)}:v?{re.escape(tag)}",
+        rf"goharbor/{re.escape(source)}:[^\s\"']+",
         f"{user}/{target}:{tag}",
         text,
     )
