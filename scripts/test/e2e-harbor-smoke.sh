@@ -19,12 +19,25 @@ VERSION_TAG=$(clean_version_tag "$VERSION")
 WORK_DIR="$(mktemp -d)"
 COMPOSE_FILE="${WORK_DIR}/docker-compose.yml"
 
+# Harbor is designed to run as root: prepare writes env_files/configs owned by
+# root and the service containers run as their own uids. Drive docker compose
+# (and workspace cleanup) via sudo so it can read those root-owned env_files,
+# mirroring a real Harbor deployment.
+SUDO=""
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+fi
+
+compose() {
+    $SUDO docker compose "$@"
+}
+
 # shellcheck disable=SC2317,SC2329  # cleanup runs indirectly via `trap cleanup EXIT`
 cleanup() {
     if [ -f "$COMPOSE_FILE" ]; then
-        docker compose -f "$COMPOSE_FILE" down -v >/dev/null 2>&1 || true
+        compose -f "$COMPOSE_FILE" down -v >/dev/null 2>&1 || true
     fi
-    rm -rf "$WORK_DIR"
+    $SUDO rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
 
@@ -141,7 +154,7 @@ if grep -q 'goharbor/' "$COMPOSE_FILE"; then
 fi
 
 log_info "Starting generated Harbor stack"
-docker compose -f "$COMPOSE_FILE" up -d
+compose -f "$COMPOSE_FILE" up -d
 
 for attempt in $(seq 1 60); do
     if curl -fsS http://localhost:8080/api/v2.0/ping >/dev/null 2>&1; then
@@ -153,7 +166,7 @@ for attempt in $(seq 1 60); do
     sleep 5
 done
 
-docker compose -f "$COMPOSE_FILE" ps || true
-docker compose -f "$COMPOSE_FILE" logs --tail=200 || true
+compose -f "$COMPOSE_FILE" ps || true
+compose -f "$COMPOSE_FILE" logs --tail=200 || true
 log_error "Harbor ping endpoint did not respond"
 exit 1
