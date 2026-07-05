@@ -48,9 +48,11 @@ detect_registry_metadata_value() {
             return 0
         fi
     done < <(
-        find "$harbor_dir" \
-            \( -name Makefile -o -path '*/make/photon/registry/*' \) \
-            -type f 2>/dev/null
+        # Only Makefiles carry the authoritative variable definitions. Other files
+        # under make/photon/registry (e.g. the `builder` shell script whose line
+        # reads DISTRIBUTION_SRC="$2") would otherwise pollute detection with
+        # positional-parameter placeholders instead of real values.
+        find "$harbor_dir" -name Makefile -type f 2>/dev/null
     )
 
     return 1
