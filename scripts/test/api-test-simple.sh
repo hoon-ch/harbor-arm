@@ -17,6 +17,7 @@ fi
 
 VERSION=$1
 DOCKER_USERNAME=$2
+# shellcheck disable=SC2034  # BASE_URL reserved for optional live API checks
 BASE_URL=${3:-"http://localhost:8080"}
 VERSION_TAG=$(clean_version_tag "$VERSION")
 

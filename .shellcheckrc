@@ -1,0 +1,10 @@
+# ShellCheck configuration for Harbor ARM64 build scripts.
+
+# SC1091: `source` targets are resolved at runtime from computed paths
+#         ($SCRIPT_DIR/../common.sh, $SCRIPT_DIR/config.sh) and cannot be
+#         followed statically without `shellcheck -x` and resolvable paths.
+disable=SC1091
+
+# SC2129: the report generators intentionally use individual `>> "$REPORT_FILE"`
+#         appends for readability; grouped-redirect style is not enforced.
+disable=SC2129

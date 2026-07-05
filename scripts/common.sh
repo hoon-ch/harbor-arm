@@ -4,6 +4,7 @@
 
 # Load configuration
 SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2317  # reachable when the script is executed (not sourced)
 fail_common_config_load() {
     case $- in
         *i*) return 1 2>/dev/null || exit 1 ;;
@@ -152,7 +153,8 @@ verify_image_arch() {
     local image=$1
     local expected_arch=$2
 
-    local arch=$(docker image inspect "$image" --format '{{.Architecture}}' 2>/dev/null)
+    local arch
+    arch=$(docker image inspect "$image" --format '{{.Architecture}}' 2>/dev/null)
 
     if [ "$arch" = "$expected_arch" ]; then
         log_success "Image architecture verified: $image ($arch)"
@@ -196,7 +198,8 @@ verify_directory() {
 
 # Get current architecture
 get_current_arch() {
-    local arch=$(uname -m)
+    local arch
+    arch=$(uname -m)
     case $arch in
         x86_64)
             echo "amd64"
@@ -221,11 +224,13 @@ show_build_env() {
 
 # Measure execution time
 start_timer() {
-    export TIMER_START=$(date +%s)
+    TIMER_START=$(date +%s)
+    export TIMER_START
 }
 
 end_timer() {
-    local end=$(date +%s)
+    local end
+    end=$(date +%s)
     local duration=$((end - TIMER_START))
     local minutes=$((duration / 60))
     local seconds=$((duration % 60))
@@ -239,14 +244,14 @@ retry_command() {
     local attempt=1
     local exit_code=0
 
-    while [ $attempt -le $max_attempts ]; do
+    while [ $attempt -le "$max_attempts" ]; do
         if "$@"; then
             return 0
         else
             exit_code=$?
-            if [ $attempt -lt $max_attempts ]; then
+            if [ $attempt -lt "$max_attempts" ]; then
                 log_warning "Attempt $attempt/$max_attempts failed. Retrying in ${timeout}s..."
-                sleep $timeout
+                sleep "$timeout"
                 timeout=$((timeout * 2))  # Exponential backoff
             else
                 log_error "All $max_attempts attempts failed"

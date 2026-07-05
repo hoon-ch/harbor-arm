@@ -53,7 +53,7 @@ fi
 log_section "Patching Dockerfiles to Use Local ARM64 Base Images"
 
 # Replace FROM lines with ARG variables to hardcoded values
-for dockerfile in $(find make/photon -name "Dockerfile" -type f); do
+while IFS= read -r dockerfile; do
     log_info "Patching $dockerfile..."
 
     # Replace FROM lines that use variables
@@ -64,9 +64,9 @@ for dockerfile in $(find make/photon -name "Dockerfile" -type f); do
 
     # Show what we have now (only if there are prepare-base references)
     if grep -q "prepare-base" "$dockerfile"; then
-        log_info "$(basename $dockerfile): $(grep 'FROM.*prepare-base' $dockerfile | head -1)"
+        log_info "$(basename "$dockerfile"): $(grep 'FROM.*prepare-base' "$dockerfile" | head -1)"
     fi
-done
+done < <(find make/photon -name "Dockerfile" -type f)
 
 log_success "All Dockerfiles patched"
 

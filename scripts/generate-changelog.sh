@@ -108,14 +108,14 @@ if [ -n "$TAGS" ]; then
 
     PREV_TAG=""
     for TAG in $TAGS; do
-        echo "## [$TAG] - $(git log -1 --format=%ai $TAG | cut -d' ' -f1)" >> "$CHANGELOG_FILE"
+        echo "## [$TAG] - $(git log -1 --format=%ai "$TAG" | cut -d' ' -f1)" >> "$CHANGELOG_FILE"
         echo "" >> "$CHANGELOG_FILE"
 
         # Get commits for this tag
         if [ -z "$PREV_TAG" ]; then
-            COMMITS=$(git log $TAG --oneline --no-merges --reverse)
+            COMMITS=$(git log "$TAG" --oneline --no-merges --reverse)
         else
-            COMMITS=$(git log ${PREV_TAG}..${TAG} --oneline --no-merges --reverse)
+            COMMITS=$(git log "${PREV_TAG}".."${TAG}" --oneline --no-merges --reverse)
         fi
 
         # Output commits by category

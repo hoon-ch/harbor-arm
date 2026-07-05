@@ -188,9 +188,7 @@ for component in "${TESTABLE_COMPONENTS[@]}"; do
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
         log_info "Testing $component startup..."
 
-        CONTAINER_ID=$(docker run -d --rm "$IMAGE" 2>&1)
-
-        if [ $? -eq 0 ]; then
+        if CONTAINER_ID=$(docker run -d --rm "$IMAGE" 2>&1); then
             sleep 3
 
             # Check if container is still running

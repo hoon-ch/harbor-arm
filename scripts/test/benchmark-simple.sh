@@ -17,6 +17,7 @@ fi
 
 VERSION=$1
 DOCKER_USERNAME=$2
+# shellcheck disable=SC2034  # BASE_URL reserved for optional live API benchmarks
 BASE_URL=${3:-"http://localhost:8080"}
 VERSION_TAG=$(clean_version_tag "$VERSION")
 
@@ -88,7 +89,7 @@ log_info "Testing Redis container startup time..."
 START=$(date +%s.%N)
 if docker run -d --name redis-bench --rm "$REDIS_IMAGE" redis-server >/dev/null 2>&1; then
     # Wait for Redis to be ready
-    for i in {1..10}; do
+    for _ in {1..10}; do
         if docker exec redis-bench redis-cli ping 2>&1 | grep -q "PONG"; then
             END=$(date +%s.%N)
             STARTUP_TIME=$(echo "$END - $START" | bc)

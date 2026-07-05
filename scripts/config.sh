@@ -5,6 +5,7 @@
 
 if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
     echo "Harbor ARM64 scripts require Bash 4 or newer because scripts/config.sh uses associative arrays." >&2
+    # shellcheck disable=SC2317  # reachable when the script is executed (not sourced)
     return 1 2>/dev/null || exit 1
 fi
 

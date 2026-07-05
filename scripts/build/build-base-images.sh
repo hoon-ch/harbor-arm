@@ -53,15 +53,15 @@ log_section "Patching Photon Base Images for ARM64"
 
 patched_files=0
 while IFS= read -r base_dockerfile; do
-    if grep -q '^FROM goharbor/photon:5\.0$' "$base_dockerfile"; then
-        sed -i 's|^FROM goharbor/photon:5\.0$|FROM photon:5.0|' "$base_dockerfile"
+    if grep -Eq 'goharbor/photon:5\.0(-legacy)?' "$base_dockerfile"; then
+        sed -i -E 's|goharbor/photon:5\.0(-legacy)?|photon:5.0|g' "$base_dockerfile"
         log_info "Patched $base_dockerfile to use multi-arch photon:5.0"
         patched_files=$((patched_files + 1))
     fi
 done < <(find make/photon -name "Dockerfile.base" -type f 2>/dev/null)
 
 if [ "$patched_files" -eq 0 ]; then
-    log_warning "No goharbor/photon:5.0 base images found to patch"
+    log_warning "No goharbor/photon:5.0 (or 5.0-legacy) base images found to patch"
 else
     log_success "Patched $patched_files Photon base Dockerfile(s)"
 fi
@@ -76,8 +76,8 @@ log_section "Building harbor-prepare-base:${VERSION}"
 # Use regular docker build (not buildx) since we might be on native ARM64
 # This prevents buildx from pulling remote AMD64 images
 docker build \
-    -t goharbor/harbor-prepare-base:${VERSION} \
-    -t ${DOCKER_USERNAME}/harbor-prepare-base:${VERSION} \
+    -t goharbor/harbor-prepare-base:"${VERSION}" \
+    -t "${DOCKER_USERNAME}"/harbor-prepare-base:"${VERSION}" \
     -f make/photon/prepare/Dockerfile.base \
     make/photon/prepare/
 
@@ -87,13 +87,13 @@ verify_image "goharbor/harbor-prepare-base:${VERSION}" || exit_on_error "Failed 
 log_success "Successfully built harbor-prepare-base:${VERSION}"
 
 # Also tag with the exact version tag format Harbor expects
-docker tag goharbor/harbor-prepare-base:${VERSION} goharbor/prepare:${VERSION_TAG}
-docker tag goharbor/harbor-prepare-base:${VERSION} ${DOCKER_USERNAME}/prepare:${VERSION_TAG}
+docker tag goharbor/harbor-prepare-base:"${VERSION}" goharbor/prepare:"${VERSION_TAG}"
+docker tag goharbor/harbor-prepare-base:"${VERSION}" "${DOCKER_USERNAME}"/prepare:"${VERSION_TAG}"
 
 # Build other base images if they exist
 log_section "Building Additional Base Images"
 
-for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); do
+while IFS= read -r base_dockerfile; do
     if [ -f "$base_dockerfile" ] && [ "$base_dockerfile" != "make/photon/prepare/Dockerfile.base" ]; then
         component_dir=$(dirname "$base_dockerfile")
         component_name=$(basename "$component_dir")
@@ -101,8 +101,8 @@ for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); 
         log_info "Building base image for ${component_name}..."
 
         if docker build \
-            -t goharbor/harbor-${component_name}-base:${VERSION} \
-            -t ${DOCKER_USERNAME}/harbor-${component_name}-base:${VERSION} \
+            -t goharbor/harbor-"${component_name}"-base:"${VERSION}" \
+            -t "${DOCKER_USERNAME}"/harbor-"${component_name}"-base:"${VERSION}" \
             -f "$base_dockerfile" \
             "$component_dir/"; then
             log_success "Built base image for ${component_name}"
@@ -110,7 +110,7 @@ for base_dockerfile in $(find make/photon -name "Dockerfile.base" 2>/dev/null); 
             record_base_image_failure "$component_name"
         fi
     fi
-done
+done < <(find make/photon -name "Dockerfile.base" -type f 2>/dev/null)
 
 # List all built base images
 list_images "harbor.*base|prepare"

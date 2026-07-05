@@ -56,11 +56,11 @@ list_images "goharbor|${DOCKER_USERNAME}"
 # Compile the Go binaries (including core, jobservice)
 log_section "Compiling Go Binaries"
 make compile \
-    GOBUILDIMAGE=golang:${REQUIRED_GO_VERSION} \
+    GOBUILDIMAGE=golang:"${REQUIRED_GO_VERSION}" \
     COMPILETAG=compile_golangimage \
     BUILDBIN=true \
-    NOTARYFLAG=${BUILD_FLAG_NOTARY} \
-    TRIVYFLAG=${BUILD_FLAG_TRIVY} \
+    NOTARYFLAG="${BUILD_FLAG_NOTARY}" \
+    TRIVYFLAG="${BUILD_FLAG_TRIVY}" \
     GOBUILDTAGS="${BUILD_FLAG_GOBUILDTAGS}"
 
 log_success "Go binaries compiled"
@@ -96,8 +96,8 @@ log_section "Building Docker Images Manually"
 log_info "Building prepare image..."
 docker build \
     --build-arg harbor_base_namespace=goharbor \
-    --build-arg harbor_base_image_version=${VERSION} \
-    -t ${DOCKER_USERNAME}/prepare:${VERSION_TAG} \
+    --build-arg harbor_base_image_version="${VERSION}" \
+    -t "${DOCKER_USERNAME}"/prepare:"${VERSION_TAG}" \
     -f make/photon/prepare/Dockerfile \
     .
 
@@ -106,8 +106,8 @@ for component in core jobservice; do
     log_info "Building $component..."
     if docker build \
         --build-arg harbor_base_namespace=goharbor \
-        --build-arg harbor_base_image_version=${VERSION} \
-        -t ${DOCKER_USERNAME}/harbor-$component:${VERSION_TAG} \
+        --build-arg harbor_base_image_version="${VERSION}" \
+        -t "${DOCKER_USERNAME}"/harbor-$component:"${VERSION_TAG}" \
         -f make/photon/$component/Dockerfile \
         .; then
         log_success "Built $component"
@@ -119,10 +119,10 @@ done
 # Build portal with NODE argument
 log_info "Building portal..."
 if docker build \
-    --build-arg harbor_base_namespace=${BUILD_CONFIG_HARBOR_BASE_NAMESPACE} \
-    --build-arg harbor_base_image_version=${VERSION} \
-    --build-arg NODE=node:${BUILD_CONFIG_NODE_VERSION} \
-    -t ${DOCKER_USERNAME}/harbor-portal:${VERSION_TAG} \
+    --build-arg harbor_base_namespace="${BUILD_CONFIG_HARBOR_BASE_NAMESPACE}" \
+    --build-arg harbor_base_image_version="${VERSION}" \
+    --build-arg NODE=node:"${BUILD_CONFIG_NODE_VERSION}" \
+    -t "${DOCKER_USERNAME}"/harbor-portal:"${VERSION_TAG}" \
     -f make/photon/portal/Dockerfile \
     .; then
     log_success "Built portal"
@@ -149,8 +149,8 @@ for component in nginx log db redis; do
 
     if docker build \
         --build-arg harbor_base_namespace=goharbor \
-        --build-arg harbor_base_image_version=${VERSION} \
-        -t ${DOCKER_USERNAME}/$image_name:${VERSION_TAG} \
+        --build-arg harbor_base_image_version="${VERSION}" \
+        -t "${DOCKER_USERNAME}"/$image_name:"${VERSION_TAG}" \
         -f make/photon/$component/Dockerfile \
         .; then
         log_success "Built $component"
@@ -163,8 +163,8 @@ done
 log_info "Building registry..."
 if docker build \
     --build-arg harbor_base_namespace=goharbor \
-    --build-arg harbor_base_image_version=${VERSION} \
-    -t ${DOCKER_USERNAME}/registry-photon:${VERSION_TAG} \
+    --build-arg harbor_base_image_version="${VERSION}" \
+    -t "${DOCKER_USERNAME}"/registry-photon:"${VERSION_TAG}" \
     -f make/photon/registry/Dockerfile \
     .; then
     log_success "Built registry"
@@ -175,8 +175,8 @@ fi
 log_info "Building registryctl..."
 if docker build \
     --build-arg harbor_base_namespace=goharbor \
-    --build-arg harbor_base_image_version=${VERSION} \
-    -t ${DOCKER_USERNAME}/harbor-registryctl:${VERSION_TAG} \
+    --build-arg harbor_base_image_version="${VERSION}" \
+    -t "${DOCKER_USERNAME}"/harbor-registryctl:"${VERSION_TAG}" \
     -f make/photon/registryctl/Dockerfile \
     .; then
     log_success "Built registryctl"
@@ -210,8 +210,8 @@ EOF
 
     if docker build \
         --build-arg harbor_base_namespace=goharbor \
-        --build-arg harbor_base_image_version=${VERSION} \
-        -t ${DOCKER_USERNAME}/harbor-exporter:${VERSION_TAG} \
+        --build-arg harbor_base_image_version="${VERSION}" \
+        -t "${DOCKER_USERNAME}"/harbor-exporter:"${VERSION_TAG}" \
         -f /tmp/Dockerfile.exporter \
         .; then
         log_success "Built exporter"
