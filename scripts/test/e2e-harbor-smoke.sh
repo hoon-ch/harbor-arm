@@ -81,11 +81,13 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
-# prepare runs as root inside the container and writes docker-compose.yml (and
-# the generated config tree) owned by root. Reclaim ownership so the host-side
-# rewrite below and the cleanup trap can modify/remove these files.
-if command -v sudo >/dev/null 2>&1; then
-    sudo chown -R "$(id -u):$(id -g)" "$WORK_DIR" || true
+# prepare runs as root inside the container and writes docker-compose.yml owned
+# by root, so reclaim just that file for the host-side rewrite below. Do NOT
+# touch the generated config/data tree: prepare sets it to the uids the service
+# containers run as (e.g. 999/10000), and chowning it to the runner would break
+# each service with "permission denied" on its config.
+if [ ! -w "$COMPOSE_FILE" ] && command -v sudo >/dev/null 2>&1; then
+    sudo chown "$(id -u):$(id -g)" "$COMPOSE_FILE" || true
 fi
 
 log_info "Rewriting generated compose file to use rebuilt ARM64 images"
